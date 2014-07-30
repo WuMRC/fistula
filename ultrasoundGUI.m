@@ -21,7 +21,7 @@ function varargout = ultrasoundGUI(varargin)
 % See also: GUIDE, GUIDATA, GUIHANDLES
 
 % Edit the above text to modify the response to help ultrasoundGUI
-
+% Here is what a change looks like
 % Last Modified by Barry Belmont, July 2014.
 
 % Begin initialization code - DO NOT EDIT
