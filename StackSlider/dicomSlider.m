@@ -419,46 +419,5 @@ end
 
 
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% Function that creates the 3D-array used
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function [outstack]=makestack(arrayorfile,dataclass)                        %First input is either a filename or a 3D array, second is the class
-
-if ischar(arrayorfile)                                                      %If it's a filename, read the file using tiffread
-    lsm= tiffread(arrayorfile);
-    
-    if length(lsm(1,1).data)>1                                              %If there are several channels, pick which one to display
-        chstrgs = inputdlg({'Pick channel to display:'},...
-            'Enter channel',1,{'1'});
-        ch=str2double(chstrgs{1});
-    end
-    outstack=zeros(size(lsm(1).data{1},1), size(lsm(1).data{1},2),...       %Preallocate memory for the image stack
-        length(lsm));
-    for k=1:length(lsm)
-        outstack(:,:,k)=lsm(k).data{ch};                                    %Build the stack. There should be a better way to do this...
-    end
-else
-    outstack=arrayorfile;                                                   %If the input was an array, that array is our image stack
-    clear arrayorfile
-end
-
-maxval=max(outstack(:));                                                    %The maximum value of the stack for colormap scaling
-currentclass=class(outstack);                                               %The data class of the data
-
-switch dataclass                                                            %Switch on the desired data class 
-    case 'uint8'                                                            %User wants uint8 (quickest and least memory needed)
-        if ~strcmp(currentclass,'uint8')                                    %If it's already uint8, do nothing
-            outstack=uint8(255*double(outstack)/double(maxval));            %Normalize and cast to uint8
-        end
-        
-    case 'uint16'                                                           %User wants uint16
-        if strcmp(currentclass,'uint8')                                     %If the class is uint8, this is stupid.
-            disp('Displaying an 8-bit image as a 16-bit image is stupid. uint8 used.')
-        elseif ~strcmp(currentclass,'uint16')                               %If it's already uint16, do nothing
-            outstack=uint16(65535*double(outstack)/double(maxval));         %Normalize and cast to uint16
-        end
-end
-end
-
 
 
