@@ -1,11 +1,10 @@
-% StackSlider(varargin): GUI for displaying images from, e.g., an lsm stack
-% or other 3D array. Can be called in several ways:
+% dicomSlider(varargin): GUI for displaying DICOM. Can be called in several ways:
 %
-% StackSlider() without input lets the user choose an lsm file to be
-% displayed. Images will be converted to and shown on an 8-bit scale.
+% dicomSlider() without input lets the user choose a DICOM file to be
+% displayed. 
 %
-% StackSlider(I) where I is a 3D array will display the array, assuming that
-% consecutive images are arrayed along the third dimension. As above, uses
+% StackSlider(I) where I is a DICOM array will display the array, assuming 
+% consecutive images are arrayed along the third dimension. Uses
 % 8-bit colors.
 %
 % StackSlider('filename') where filename is a path and name of a valid image
@@ -35,10 +34,12 @@
 % This program calls tiffread.m, which can be downloaded for free from
 % http://www.cytosim.org/other/
 %
-% Written by Otto Manneberg, SciLifeLab 2011-07-22.
+% Originally written by Otto Manneberg, SciLifeLab 2011-07-22.
 % otto.manneberg@scilifelab.se
 % Copyright (c) 2011, Otto Manneberg
 % All rights reserved.
+%
+% Modified to different ends by Barry Belmont, WuMRC July 2014.
 % 
 % Redistribution and use in source and binary forms, with or without
 % modification, are permitted provided that the following conditions are met:
@@ -64,7 +65,7 @@
 
 
 
-function [] = StackSlider(varargin)
+function [] = dicomSlider(varargin)
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Input argument checking and handling                                   
@@ -76,14 +77,13 @@ end
 
 switch nargin
     case 0                                         
-        [FileName, FilePath]=uigetfile('*.lsm',...                          %No inputs, lets user pick a file
+        [FileName, FilePath]=uigetfile('*.DCM',...                          %No inputs, lets user pick a file
             'Choose lsm images to import',pwd,...                           %"pwd" returns the folder listed as "Current Folder" in the main window
             'MultiSelect','off');                                           %Allow only one lsm file to be chosen
         if FilePath(1)==0                                                   %If no files are chosen, break execution
             disp('Error in StackSlider: No files chosen');
             return
         end
-%         S.I=makestack(strcat(FilePath,FileName),'uint8');%Make the stack and force the class to be uint8, store in struct S
         S.I = permute(dicomread(FileName),[1 2 4 3]);
     case 1                                                                  
         S.I=makestack(varargin{1},'uint8');                                 %One input, pass it along to makestack and force the class to be uint8, store in struct S
@@ -240,6 +240,7 @@ S.exportbutton = uicontrol('style','pushbutton',...                          %Pu
 S.Clims=[0 max(S.I(:))];                                                    %Color limits for the plotting and colorbar. Needs to be done before callbacks are assigned
 imagesc(squeeze(S.I(:,:,1)),S.Clims);                                       %Display the first frame
 axis equal tight                                                            %Make sure it's to scale
+set(gca,'YDir','Reverse')
 setcm(S.cmpopup,[],S)                                                            %Set colormap
 colorbar                                                                    %Display a colorbar
 
