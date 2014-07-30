@@ -22,7 +22,7 @@ function varargout = ultrasoundGUI(varargin)
 
 % Edit the above text to modify the response to help ultrasoundGUI
 
-% Last Modified by GUIDE v2.5 30-Jul-2014 13:43:39
+% Last Modified by Barry Belmont, July 2014.
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -51,6 +51,24 @@ function ultrasoundGUI_OpeningFcn(hObject, eventdata, handles, varargin)
 % handles    structure with handles and user data (see GUIDATA)
 % varargin   command line arguments to ultrasoundGUI (see VARARGIN)
 
+
+
+% Have user select the file they wish to work with
+[fileName, pathName, filterIndex] ...
+    = uigetfile('*.*','Pick DICOM file for analysis');
+WORKING_DIRECTORY = pathName;
+cd(WORKING_DIRECTORY);
+
+% Read in the DICOM file and all of its information
+[image, map, alpha, overlays] = dicomread(fileName);
+
+% Make the image of form [X, Y, Z, Color]
+imageperm = permute(image, [1 2 4 3]);
+working_image = imageperm(:,:,:,1);
+handles.current_data = working_image;
+
+
+
 % Choose default command line output for ultrasoundGUI
 handles.output = hObject;
 
@@ -60,7 +78,8 @@ guidata(hObject, handles);
 % This sets up the initial plot - only do when we are invisible
 % so window can get raised using ultrasoundGUI.
 if strcmp(get(hObject,'Visible'),'off')
-    plot(rand(5));
+    % Display image to user
+    imshow(handles.current_data(:,:,1,1));
 end
 
 % UIWAIT makes ultrasoundGUI wait for user response (see UIRESUME)
@@ -88,9 +107,9 @@ cla;
 popup_sel_index = get(handles.popupmenu1, 'Value');
 switch popup_sel_index
     case 1
-        plot(rand(5));
+        imshow(handles.current_data(:,:,1,1));
     case 2
-        plot(sin(1:0.01:25.99));
+        imshow(rand(100));
     case 3
         bar(1:.5:10);
     case 4
@@ -161,4 +180,4 @@ if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgr
      set(hObject,'BackgroundColor','white');
 end
 
-set(hObject, 'String', {'plot(rand(5))', 'plot(sin(1:0.01:25))', 'bar(1:.5:10)', 'plot(membrane)', 'surf(peaks)'});
+set(hObject, 'String', {'DICOM of Image', 'Random DICOM', 'bar(1:.5:10)', 'plot(membrane)', 'surf(peaks)'});
