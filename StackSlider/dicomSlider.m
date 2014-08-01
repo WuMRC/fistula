@@ -3,16 +3,16 @@
 % dicomSlider() without input lets the user choose a DICOM file to be
 % displayed. 
 %
-% StackSlider(I) where I is a DICOM array will display the array, assuming 
+% dicomSlider(I) where I is a DICOM array will display the array, assuming 
 % consecutive images are arrayed along the third dimension. Uses
 % 8-bit colors.
 %
-% StackSlider('filename') where filename is a path and name of a valid image
+% dicomSlider('filename') where filename is a path and name of a valid image
 % stack will display said stack. As above, uses 8-bit colors.
 %
-% StackSlider(X,'type') where X is _either_ an array or filename as above
+% dicomSlider(X,'type') where X is _either_ an array or filename as above
 % will convert the input array to the class 'type' (uint8 or uint16) and
-% display it. Note: StackSlider will not convert an 8-bit image to a 16-bit,
+% display it. Note: dicomSlider will not convert an 8-bit image to a 16-bit,
 % since this is plain stupid.
 %
 % The GUI itself lets the user scroll back and forth among the frames using a
@@ -71,7 +71,7 @@ function [] = dicomSlider(varargin)
 %% Input argument checking and handling                                   
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 if nargin > 2
-    disp('Error in StackSlider: Too many input arguments');                 %Check for wrong number of inputs
+    disp('Error in dicomSlider: Too many input arguments');                 %Check for wrong number of inputs
     return
 end
 
@@ -81,14 +81,14 @@ switch nargin
             'Choose lsm images to import',pwd,...                           %"pwd" returns the folder listed as "Current Folder" in the main window
             'MultiSelect','off');                                           %Allow only one lsm file to be chosen
         if FilePath(1)==0                                                   %If no files are chosen, break execution
-            disp('Error in StackSlider: No files chosen');
+            disp('Error in dicomSlider: No files chosen');
             return
         end
         S.I = permute(dicomread(FileName),[1 2 4 3]);
     case 1                                                                  
-        S.I=makestack(varargin{1},'uint8');                                 %One input, pass it along to makestack and force the class to be uint8, store in struct S
-    case 2                                                                  
-        S.I=makestack(varargin{1},varargin{2});                             %Two inputs, pass both along to makestack, store in struct S
+        S.I = permute(dicomread(FileName),[1 2 4 3]);                                 %One input, pass it along to makestack and force the class to be uint8, store in struct S
+%     case 2                                                                  
+%         S.I=makestack(varargin{1},varargin{2});                             %Two inputs, pass both along to makestack, store in struct S
 end
 
 
@@ -98,7 +98,7 @@ end
 % All handles and the image stack are stored in the struct SS             %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 SCRSZ=get(0,'ScreenSize');                                                  %Get user's screen size
-figheight=SCRSZ(4)-100;                                                     %A reasonable height for the GUI
+figheight=SCRSZ(4)-120;                                                     %A reasonable height for the GUI
 figwidth=SCRSZ(4)*1.1;                                                      %A reasonable width for the GUI (the height of the screen*1.1)
 pad=10;                                                                     %Inside padding in the GUI
 smallstep=1/(size(S.I,3)-1);                                                %Step the slider will take when moved using the arrow buttons: 1 frame
@@ -108,7 +108,7 @@ largestep=smallstep*10;                                                     %Ste
 S.fh = figure('units','pixels',...                                          
     'position',[figwidth/4 50 figwidth figheight],...
     'menubar','figure',...
-    'name','StackSlider',...
+    'name','dicomSlider',...
     'numbertitle','off',...
     'resize','off');
 
