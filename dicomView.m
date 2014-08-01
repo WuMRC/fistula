@@ -18,6 +18,23 @@ switch nargin
             return
         end
         S.I = permute(dicomread(fileName),[1 2 4 3]);
+%         dicomSize 
     case 1
         S.I = permute(dicomread(fileName),[1 2 4 3]);
 end
+
+%% Build the figure for the GUI.                                          
+% All handles and the image stack are stored in the struct SS             %
+
+screenSize = get(0,'ScreenSize');
+screenWidth = screenSize(3);
+screenHeight = screenSize(4);
+
+figFactor = 0.9;
+figWidth = screenWidth*figFactor;
+figHeight = screenHeight*figFactor;
+
+pad = 10;
+
+stepSmall = 1/(size(S.I,3)-1);
+stepLarge = stepSmall*10;
