@@ -93,18 +93,17 @@ end
 
 
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Build the figure for the GUI.                                          
 % All handles and the image stack are stored in the struct SS             %
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-SCRSZ=get(0,'ScreenSize');                                                  %Get user's screen size
-figheight=SCRSZ(4)-120;                                                     %A reasonable height for the GUI
-figwidth=SCRSZ(4)*1.1;                                                      %A reasonable width for the GUI (the height of the screen*1.1)
-pad=10;                                                                     %Inside padding in the GUI
-smallstep=1/(size(S.I,3)-1);                                                %Step the slider will take when moved using the arrow buttons: 1 frame
-largestep=smallstep*10;                                                     %Step the slider will take when moved by clicking in the slider: 10 frames
 
-%%%%%%Create the figure itself. %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+SCRSZ=get(0,'ScreenSize');      % Get user's screen size
+figheight=SCRSZ(4)-150;         % Height for the GUI
+figwidth=SCRSZ(4)*1.1;          % Width for the GUI (the height of the screen*1.1)
+pad=10;                         % Inside padding in the GUI
+smallstep=1/(size(S.I,3)-1);    % Step the slider will take when moved using the arrow buttons: 1 frame
+largestep=smallstep*10;         % Step the slider will take when moved by clicking in the slider: 10 frames
+
+% Create the figure itself. 
 S.fh = figure('units','pixels',...                                          
     'position',[figwidth/4 50 figwidth figheight],...
     'menubar','figure',...
@@ -113,14 +112,14 @@ S.fh = figure('units','pixels',...
     'resize','off');
 
 
-%%%%%%Create the axes for image display. %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Create the axes for image display. 
 S.ax = axes('units','pixels',...                                            
     'position',[4*pad 6*pad figwidth-20*pad figheight-8*pad],...
     'fontsize',10,...
     'nextplot','replacechildren');
 
 
-%%%%%%Create a slider and an editbox for picking frames. %%%%%%%%%%%%%%%%%%
+% Create a slider and an editbox for picking frames. 
 S.sl = uicontrol('style','slide',...                                        
     'unit','pix',...                           
     'position',[2*pad pad figwidth-16*pad 2*pad],...
@@ -131,30 +130,30 @@ S.ed = uicontrol('style','edit',...
     'position',[figwidth-10*pad pad 4*pad 2*pad],...
     'fontsize',12,...
     'string','1');
-S.cmtext=uicontrol('style','text',...                                       %Textbox describing the editbox
+S.cmtext=uicontrol('style','text',...   % Textbox describing the editbox
     'unit','pix',...
     'position',[figwidth-13.5*pad 3*pad 10*pad 2*pad],...
     'fontsize',10,...
     'string','Current frame:');
 
 
-%%%%%%Create a popupmenu for picking colormap. %%%%%%%%%%%%%%%%%%%%%%%%%%%%
-S.cmstr={'Jet','Gray','Hot','Copper'};                                      %Strings with the allowed colormaps
-S.cmpopup = uicontrol('style','popupmenu',...                               %Popup menu for picking                        
+% Create a popupmenu for picking colormap. 
+S.cmstr={'Jet','Gray','Hot','Copper'};          % Strings with the allowed colormaps
+S.cmpopup = uicontrol('style','popupmenu',...   % Popup menu for picking                        
     'unit','pix',...
     'position',[figwidth-12*pad figheight-10*pad 6*pad 2*pad],...
     'String', S.cmstr);
-S.cmtext=uicontrol('style','text',...                                       %Textbox describing the popupmenu
+S.cmtext=uicontrol('style','text',...           % Textbox describing the popupmenu
     'unit','pix',...
     'position',[figwidth-12*pad figheight-8*pad+2 6*pad 2*pad],...
     'fontsize',10,...
     'string','Colormap');
 
 
-%%%%%%Create a button group for smoothing. %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-S.smbutgrp = uibuttongroup('unit','pix',...                                 %The button group itself
+% Create a button group for smoothing. 
+S.smbutgrp = uibuttongroup('unit','pix',...     % The button group itself
     'position',[figwidth-13.5*pad figheight-40*pad 10*pad 20*pad]);
-S.smtext=uicontrol('style','text',...                                       %Ttextbox describing the button group
+S.smtext=uicontrol('style','text',...           % Textbox describing the button group
     'unit','pix',...
     'position',[figwidth-13.5*pad figheight-20*pad+2 10*pad 2*pad],...
     'fontsize',10,...
