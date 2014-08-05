@@ -91,11 +91,11 @@ S.someText = uicontrol('style','text',...
     'fontsize', 10,...
     'string', 'Analysis Controls');
 
-S.nothing = uicontrol('style','radio',...                                      %Radio button for no smoothing
+S.default = uicontrol('style','radio',...
     'parent', S.butGrp,...
     'position',[0.5*pad, 17*pad, 9*pad, 2*pad],...
     'fontsize', 8, ...    
-    'string','Nothing');
+    'string','Default button');
 
 %% Create a button to export data
 
@@ -106,52 +106,90 @@ S.butExport = uicontrol('style', 'pushbutton', ...
     'fontsize', 12, ...
     'string','Export data');
 
-%% Draw the first frame of the stack%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-S.Clims=[0 max(S.I(:))];                                                    %Color limits for the plotting and colorbar. Needs to be done before callbacks are assigned
-imagesc(squeeze(S.I(:,:,1)),S.Clims);                                       %Display the first frame
-axis equal tight                                                            %Make sure it's to scale
+%% Draw the first frame of the stack
+S.Clims=[0 max(S.I(:))];
+imagesc(squeeze(S.I(:,:,1)),S.Clims); 
+axis equal tight 
 set(gca,'YDir','Reverse')
-% setcm(S.cmpopup,[],S)                                                            %Set colormap
-colorbar                                                                    %Display a colorbar
+% setcm(S.cmpopup,[],S)  
+colorbar
 
-%%%%%%Set callback functions%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-set([S.slideNum,S.slider],'call',{@switchframe,S});                                   %Shared callback function for fram selection slider and editbar
-% set(S.cmpopup,'Callback',{@setcm,S});                                       %Callback function for changing colormap
-set(S.butGrp,'SelectionChangeFcn',{@smoothing,S});                        %Callback function for smoothing radio buttons
-% set([S.smgausssize,S.smgausssigma,S.smdisksize],'call',{@smoothsize,S});    %Callback function for the smoothing edit boxes
-% set(S.resetbutton,'Callback', {@resetfunction,S});                          %Callback function for the reset button
+%% Set callback functions 
+set([S.slideNum,S.slider],'call',{@switchframe,S});
+% set(S.cmpopup,'Callback',{@setcm,S});        %Callback function for changing colormap
+set(S.butGrp,'SelectionChangeFcn',{@analysis,S});
+% set([S.smgausssize,S.smgausssigma,S.smdisksize],'call',{@smoothsize,S});
+% set(S.resetbutton,'Callback', {@resetfunction,S});
 set(S.butExport,'Callback',{@exportfunction,S});
 
 end
 
 
 %% Move slider or write in frame editbox callback function                
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function [] = switchframe(varargin)                                         %varargin is {calling handle, eventdata, struct S}, where eventdata is empty (currently unused) when called as callback
-[h,S] = varargin{[1,3]};                                                    %Extract handle of calling object and the struct S
+function [] = switchframe(varargin)
 
-switch h                                                                    %Who called?
-    case S.ed                                                               %The editbox called...
-        sliderState =  get(S.slider,{'min','max','value'});                     % Get the slider's info
-        enteredValue = str2double(get(h,'string'));                         % The new frame number
+%Extract handle of calling object and the struct S
+[h, S] = varargin{[1,3]};
+
+switch h
+    % A slice number was input manually
+    case S.slideNum                     
+        sliderState =  get(S.slider,{'min','max','value'});
+        enteredValue = str2double(get(h,'string'));
         
-        if enteredValue >= sliderState{1} && enteredValue <= sliderState{2} %Check if the new frame number actually exists
+        % Check for existence of slide number
+        if enteredValue >= sliderState{1} && enteredValue <= sliderState{2}
             sliderValue=round(enteredValue);
-            set(S.slider,'value',sliderValue)                                   %If it does, move the slider there
-        else
-            set(h,'string',sliderState{3})                                  %User tried to set slider out of range, keep value
+            set(S.slider,'value',sliderValue)
+        else % If it does not e
+            set(h,'string',sliderState{3})
             return
         end
-    case S.sl                                                               %The slider called...
-        sliderValue=round(get(h,'value'));                                  % Get the new slider value
-        set(S.slideNum,'string',sliderValue)                                      % Set editbox to current slider value
+    % The slider was used
+    case S.slider
+        sliderValue=round(get(h,'value'));
+        set(S.slideNum,'string',sliderValue)
 end
 
-if get(S.butGrp,'SelectedObject')==S.nothing                              %Check if the smoothing is set to 'none'
-    imagesc(squeeze(S.I(:,:,sliderValue)),S.Clims)                         % If it is, plot the new selected frame from the original stack
-%     setcm(S.cmpopup,[],S)
+% Check to see if the analysis button is set to 'none'
+if get(S.butGrp,'SelectedObject')==S.default
+    % If it is, plot the new selected frame from the original stack
+    imagesc(squeeze(S.I(:,:,sliderValue)),S.Clims)
+    %     setcm(S.cmpopup,[],S)
 else
-    smoothing(get(S.butGrp,'SelectedObject'),[],S)                       % If it isn't, plot the new selected frame from the smoothed stack
+    % If it isn't, plot the new selected frame from the analyzed stack
+    analysis(get(S.butGrp,'SelectedObject'),[],S)
 end
 
+end
+
+
+%% Perform various analysis    
+function [] = analysis(varargin)
+[h,S] = varargin{[1,3]};
+if h==S.smbutgrp  % If called by a radio button, the calling handle will be the button group
+    h=varargin{2}.NewValue; % Set h to the handle of the selected radio button
+end
+
+currentFrame = round(get(S.sl,'value'));
+
+switch h % Get handle of calling radio button
+    case S.default
+        imagesc(squeeze(S.I(:,:,currentFrame)),S.Clims)
+%         setcm(S.cmpopup,[],S)
+        return %  Return to caller function so no filtering is done
+    case S.correlation
+        % Make room for decorrleation analysis
+        % Should be updated frame to frame (potentially for every pixel)
+        
+    case S.diameter
+        % To take diameter measurements
+        % Would love to be able to slect either two regions of the walls or
+        % select a single line between two walls to measure
+        
+end
+
+% S.Is=imfilter(S.I(:,:,currentFrame),smfilt,'replicate');
+% imagesc(S.Is,S.Clims)    
+% setcm(S.cmpopup,[],S)
 end
