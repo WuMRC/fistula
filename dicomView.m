@@ -59,7 +59,7 @@ S.axes      = axes('units', 'pixels', ...
 % The slider itself
 S.slider    = uicontrol('style','slide',...                                        
             'unit','pix',...                           
-            'position',[2*pad, pad, figWidth-16*pad, 2*pad],...
+            'position',[5*pad, pad, figWidth-16*pad, 2*pad],...
             'min',1,'max',size(S.I,3),'val',1,...
             'SliderStep', [stepSmall, stepLarge]);
         
@@ -76,7 +76,14 @@ S.slideText = uicontrol('style', 'text', ...
             'position', [figWidth-13.5*pad, 3*pad, 10*pad, 2*pad],...
             'fontsize', 10, ...
             'string', 'Current frame:');
-        
+%Play button
+S.play = uicontrol('style','togglebutton',...
+            'unit', 'pix',...
+            'position',[pad, pad, 4*pad, 2*pad],...
+            'min',0,'max',1,...
+            'value',0,...
+            'string', 'Play');
+            
         
 %% Create a button group (for analysis eventually)
 
@@ -87,7 +94,7 @@ S.butGrp    = uibuttongroup('unit','pix',...
 % Textbox describing the button group
 S.someText = uicontrol('style','text',...
     'unit', 'pix', ...
-    'position',[figWidth-13.5*pad, figHeight-20*pad+2, 10*pad, 2*pad], ...
+    'position',[figWidth-13.5*pad, figHeight-18*pad+2, 10*pad, 3*pad], ...
     'fontsize', 10,...
     'string', 'Analysis Controls');
 
@@ -102,7 +109,7 @@ S.default = uicontrol('style','radio',...
 % Pushbutton to draw current view in separate figure
 S.butExport = uicontrol('style', 'pushbutton', ...
     'unit', 'pix', ...
-    'position', [figWidth-14*pad, figHeight-60*pad, 11*pad, 4*pad], ...
+    'position', [figWidth-14*pad, figHeight-55*pad, 11*pad, 4*pad], ...
     'fontsize', 12, ...
     'string','Export data');
 
@@ -115,7 +122,7 @@ set(gca,'YDir','Reverse')
 colorbar
 
 %% Set callback functions 
-set([S.slideNum,S.slider],'call',{@switchframe,S});
+set([S.slideNum,S.slider,S.play],'call',{@switchframe,S});
 % set(S.cmpopup,'Callback',{@setcm,S});        %Callback function for changing colormap
 set(S.butGrp,'SelectionChangeFcn',{@analysis,S});
 % set([S.smgausssize,S.smgausssigma,S.smdisksize],'call',{@smoothsize,S});
@@ -145,10 +152,43 @@ switch h
             set(h,'string',sliderState{3})
             return
         end
+        
     % The slider was used
     case S.slider
         sliderValue=round(get(h,'value'));
         set(S.slideNum,'string',sliderValue)
+    
+    %Play button was used
+    case S.play
+        playValue= get(S.play,'value');
+        sliderMax = get(S.slider,'max');
+        while playValue == 1       %Plays the slides
+            sliderValue =  round(get(S.slider,'value'));
+            
+            if sliderValue >= sliderMax;
+                play.Value = 0;
+                break;
+            end
+            %Increment the slider
+            sliderValue=sliderValue+1; 
+            set(S.slideNum,'string',sliderValue)
+            set(S.slider,'value',sliderValue)
+            
+            % Check to see if the analysis button is set to 'none'
+            if get(S.butGrp,'SelectedObject')==S.default
+                % If it is, plot the new selected frame from the original stack
+                imagesc(squeeze(S.I(:,:,sliderValue)),S.Clims)
+                %     setcm(S.cmpopup,[],S)
+            else
+                % If it isn't, plot the new selected frame from the analyzed stack
+                analysis(get(S.butGrp,'SelectedObject'),[],S)
+            end
+            pause(0.0001);
+            
+            %Check to see playvalue
+            playValue= get(S.play,'value');
+        end        
+        sliderValue = get(S.slider,'value');  
 end
 
 % Check to see if the analysis button is set to 'none'
