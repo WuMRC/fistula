@@ -70,7 +70,7 @@ S.slideNum  = uicontrol('style', 'edit', ...
             'fontsize', 12,...
             'string', '1');
 
-% Textbox 
+%Slide Number Textbox 
 S.slideText = uicontrol('style', 'text', ...   
             'unit','pix', ...
             'position', [figWidth-13.5*pad, 3*pad, 10*pad, 2*pad],...
@@ -83,7 +83,22 @@ S.play = uicontrol('style','togglebutton',...
             'min',0,'max',1,...
             'value',0,...
             'string', 'Play');
-            
+        
+%Play Speed
+S.speed = uicontrol('style', 'popup',...
+            'String', '1|2|3|4|5',...  
+            'value', 1,...
+            'unit', 'pix', ...
+            'position', [pad, 4*pad, 4*pad, 2*pad], ...
+            'fontsize', 12);
+           
+
+%Play Speed Textbox
+S.speedText = uicontrol('style', 'text', ...   
+            'unit','pix', ...
+            'position', [pad, 6*pad, 6*pad, 3.2*pad],...
+            'fontsize', 10, ...
+            'string', 'Play Speed');            
         
 %% Create a button group (for analysis eventually)
 
@@ -158,19 +173,24 @@ switch h
         sliderValue=round(get(h,'value'));
         set(S.slideNum,'string',sliderValue)
     
+              
     %Play button was used
     case S.play
         playValue= get(S.play,'value');
         sliderMax = get(S.slider,'max');
+        
+        playSpeed = get(S.speed,'value'); %Increaes speed by skipping frames
+        
         while playValue == 1       %Plays the slides
             sliderValue =  round(get(S.slider,'value'));
             
-            if sliderValue >= sliderMax;
-                play.Value = 0;
+            sliderValue=sliderValue+playSpeed; 
+            if sliderValue > sliderMax;
+                set (S.play,'value',0);
                 break;
             end
-            %Increment the slider
-            sliderValue=sliderValue+1; 
+            %Increment and update the slider
+            
             set(S.slideNum,'string',sliderValue)
             set(S.slider,'value',sliderValue)
             
@@ -188,7 +208,8 @@ switch h
             %Check to see playvalue
             playValue= get(S.play,'value');
         end        
-        sliderValue = get(S.slider,'value');  
+        sliderValue = get(S.slider,'value'); 
+      
 end
 
 % Check to see if the analysis button is set to 'none'
