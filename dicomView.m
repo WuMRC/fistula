@@ -134,7 +134,7 @@ imagesc(squeeze(S.I(:,:,1)),S.Clims);
 axis equal tight 
 set(gca,'YDir','Reverse')
 % setcm(S.cmpopup,[],S)  
-colorbar
+% colorbar
 
 %% Set callback functions 
 set([S.slideNum,S.slider,S.play],'call',{@switchframe,S});
