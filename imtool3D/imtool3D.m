@@ -137,7 +137,7 @@ classdef imtool3D < handle
         ROIhandles  %list of ROI handles
         CurrentROI  %Currently selected ROI
     end
-     
+          
     methods
         
         function tool = imtool3D(varargin)  %Constructor
@@ -145,9 +145,22 @@ classdef imtool3D < handle
             %Check the inputs and set things appropriately
             switch nargin
                 case 0  %tool = imtool3d()
-                    I=random('unif',-50,50,[100 100 3]);
-                    position=[0 0 1 1]; h=figure; set(h,'Toolbar','none','Menubar','none')
-                    range=[-50 50];
+                    [fileName, filePath] = uigetfile('*.DCM;*.dcm',... 
+                        'Choose DICOM images to import',pwd,...
+                        'MultiSelect','off');
+                    if filePath(1) == 0
+                        disp('No files chosen')
+                        I=random('unif',-50,50,[100 100 3]);
+                        position=[0 0 1 1]; h=figure; set(h,'Toolbar','none','Menubar','none')
+                        range=[-50 50];
+                    else
+                        disp(['User selected: ', fullfile(filePath, fileName)]);
+                        I = permute(dicomread(fileName),[1 2 4 3]);
+                        position=[0 0 1 1]; h=figure; set(h,'Toolbar','none','Menubar','none')
+                        range=[min(I(:)) max(I(:))];
+                    end
+                   
+                    
                 case 1  %tool = imtool3d(I)
                     I=varargin{1}; position=[0 0 1 1]; h=figure; set(h,'Toolbar','none','Menubar','none')
                     range=[min(I(:)) max(I(:))];
@@ -407,8 +420,7 @@ classdef imtool3D < handle
             set(tool.handles.Tools.Crop ,'Cdata',icon_profile)
             fun=@(hObject,evnt) CropImageCallback(hObject,evnt,tool);
             set(tool.handles.Tools.Crop ,'Callback',fun)
-            
-            
+
             %Create Help Button
             pos=get(tool.handles.Panels.ROItools,'Position');
             tool.handles.Tools.Help             =   uicontrol(tool.handles.Panels.ROItools,'Style','pushbutton','String','?','Position',[buff pos(4)-w-buff w w],'TooltipString','Help with imtool3D');
