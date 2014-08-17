@@ -90,7 +90,7 @@ classdef dicomViewer < handle
     %       ROI.
     %       -ROI.stats is a structured variable containing stats about the
     %       ROI. Included stats are, Area, Perimeter, MaxIntensity,
-    %       MinIntensity, MeanIntensity, and STD. 
+    %       MinIntensity, MeanIntensity, and STD.
     %
     %   setCurrentSlice(tool,slice) sets the current displayed slice.
     %
@@ -106,58 +106,58 @@ classdef dicomViewer < handle
     %   Requires the image processing toolbox
     
     properties (SetAccess = private, GetAccess = private)
-        I           %Image data (MxNxK) matrix of image data    
+        I           %Image data (MxNxK) matrix of image data
         handles     %Structured variable with all the handles
         handlesROI  %list of ROI handles
         currentROI  %Currently selected ROI
         centers     %list of bin centers for histogram
     end
-          
+    
     methods
         
         function tool = dicomViewer(varargin)  %Constructor
-            
+            %%
             %Check the inputs and set things appropriately
             switch nargin
                 case 0  %tool = dicomViewer()
-                    [fileName, filePath] = uigetfile('*.DCM;*.dcm', ... 
+                    [fileName, filePath] = uigetfile('*.DCM;*.dcm', ...
                         'Choose DICOM images to import', pwd, ...
                         'MultiSelect', 'off');
                     if filePath(1) == 0
                         disp('No files chosen')
                         I = random('unif',-50, 50, [100, 100, 3]);
-                        position = [0, 0, 1, 1]; 
-                        heightHistogram = figure; 
+                        position = [0, 0, 1, 1];
+                        heightHistogram = figure;
                         set(heightHistogram,'Toolbar','none','Menubar','none')
                         pixelValueRange = [-50, 50];
                     else
-                        disp(['User selected: ', fullfile(filePath, fileName)]);
+                        disp(['User selected: ', fullfile(fileName)]);
                         I = permute(dicomread(fileName),[1, 2, 4, 3]);
-                        position=[0, 0, 1, 1]; 
-                        heightHistogram=  figure; 
+                        position=[0, 0, 1, 1];
+                        heightHistogram=  figure;
                         set(heightHistogram,'Toolbar','none','Menubar','none')
                         pixelValueRange = [min(I(:)), max(I(:))];
                     end
-                   
+                    
                     
                 case 1  %tool = dicomViewer(I)
-                    I = varargin{1}; position=[0 0 1 1]; 
-                    heightHistogram=figure; 
+                    I = varargin{1}; position=[0 0 1 1];
+                    heightHistogram=figure;
                     set(heightHistogram,'Toolbar','none','Menubar','none')
                     pixelValueRange = [min(I(:)), max(I(:))];
                 case 2  %tool = dicomViewer(I,position)
-                    I=varargin{1}; position=varargin{2}; 
-                    heightHistogram=figure; 
+                    I=varargin{1}; position=varargin{2};
+                    heightHistogram=figure;
                     set(heightHistogram,'Toolbar','none','Menubar','none')
                     pixelValueRange=[min(I(:)), max(I(:))];
                 case 3  %tool = dicomViewer(I,position,h)
-                    I=varargin{1}; 
-                    position=varargin{2}; 
+                    I=varargin{1};
+                    position=varargin{2};
                     heightHistogram=varargin{3};
                     pixelValueRange=[min(I(:)), max(I(:))];
                 case 4  %tool = dicomViewer(I,position,h,range)
-                    I=varargin{1}; 
-                    position=varargin{2}; 
+                    I=varargin{1};
+                    position=varargin{2};
                     heightHistogram=varargin{3};
                     pixelValueRange=varargin{4};
             end
@@ -185,7 +185,7 @@ classdef dicomViewer < handle
                 Af=pos(3)/pos(4);   %Aspect Ratio of the figure
                 AI=size(I,2)/size(I,1); %Aspect Ratio of the image
                 if Af>AI    %Figure is too wide, make it taller to match
-                   pos(4)=pos(3)/AI; 
+                    pos(4)=pos(3)/AI;
                 elseif Af<AI    %Figure is too long, make it wider to match
                     pos(3)=AI*pos(4);
                 end
@@ -202,15 +202,16 @@ classdef dicomViewer < handle
             handlesROI = [];
             currentROI = [];
             
+            %%
             % Create the panels and slider
             widthSidePanel = 30; %Pixel width of the side panels
             heightHistogram = 110; %Pixel height of the histogram panel
             widthButtons = 20; %Pixel size of the buttons
             
             tool.handles.Panels.Large = ...
-                uipanel(tool.handles.fig,'Position',position,'Title',''); 
-            set(tool.handles.Panels.Large,'Units','Pixels'); 
-            pos = get(tool.handles.Panels.Large,'Position'); 
+                uipanel(tool.handles.fig,'Position',position,'Title','');
+            set(tool.handles.Panels.Large,'Units','Pixels');
+            pos = get(tool.handles.Panels.Large,'Position');
             set(tool.handles.Panels.Large,'Units','normalized');
             
             tool.handles.Panels.Hist = ...
@@ -245,7 +246,7 @@ classdef dicomViewer < handle
             set(cell2mat(struct2cell(tool.handles.Panels)),...
                 'BackgroundColor','k','ForegroundColor','w','HighlightColor','k')
             
-            
+            %%
             % Create slider to scroll through image stack
             tool.handles.Slider = ...
                 uicontrol(tool.handles.Panels.Slider,'Style','Slider',...
@@ -288,7 +289,7 @@ classdef dicomViewer < handle
                 'BackgroundColor','k','ForegroundColor','w', ...
                 'FontSize',12,'HorizontalAlignment','Right');
             
-            
+            %%
             % Set up mouse button controls
             fun=@(hObject,eventdata) imageButtonDownFunction(hObject,eventdata,tool);
             set(tool.handles.I,'ButtonDownFcn',fun)
@@ -299,6 +300,7 @@ classdef dicomViewer < handle
             widthSidePanel = widthButtons;
             buff = (wp - widthSidePanel)/2;
             
+            %%
             %Create the histogram plot
             tool.handles.HistAxes = ...
                 axes('Position',[0.025, 0.15, 0.95, 0.55],...
@@ -306,7 +308,7 @@ classdef dicomViewer < handle
             im = tool.I(:,:,1);
             
             centers = linspace(min(I(:)),max(I(:)),256);
-            nElements = hist(im(:),centers); 
+            nElements = hist(im(:),centers);
             nElements = nElements./max(nElements);
             tool.handles.HistLine=plot(centers,nElements,'-w','LineWidth',1);
             set(tool.handles.HistAxes,'Color','none',...
@@ -325,8 +327,8 @@ classdef dicomViewer < handle
             
             tool.handles.HistImageAxes = axes('Position',[0.025 0.75 0.95 0.2],...
                 'Parent',tool.handles.Panels.Hist);
-            set(tool.handles.HistImageAxes,'Units','Pixels'); 
-            pos = get(tool.handles.HistImageAxes,'Position'); 
+            set(tool.handles.HistImageAxes,'Units','Pixels');
+            pos = get(tool.handles.HistImageAxes,'Position');
             set(tool.handles.HistImageAxes,'Units','Normalized');
             
             tool.handles.HistImage = ...
@@ -355,11 +357,11 @@ classdef dicomViewer < handle
             set(tool.handles.Tools.Hist,'Callback',fun)
             lp = buff+2.5*widthSidePanel;
             
-            
+            %%
             % Set up the resize function
             fun=@(x,y) panelResizeFunction(x,y,tool,wp,heightHistogram,widthButtons);
             set(tool.handles.Panels.Large,'ResizeFcn',fun)
-
+            
             
             % Create window and level boxes
             tool.handles.Tools.TW = ...
@@ -373,7 +375,7 @@ classdef dicomViewer < handle
                 'Style','Edit','String',...
                 num2str(pixelValueRange(2)-pixelValueRange(1)),...
                 'Position',[lp+buff+widthSidePanel buff 2*widthSidePanel widthSidePanel],...
-                'TooltipString','Window Width'); 
+                'TooltipString','Window Width');
             tool.handles.Tools.TL = ...
                 uicontrol(tool.handles.Panels.Tools,...
                 'Style','text','String','L','Position',...
@@ -428,9 +430,9 @@ classdef dicomViewer < handle
                     'LineWidth',1.2,'HitTest','off','Color',gColor);
                 
                 if i < nGrid
-                    xm = linspace(x(i),x(i+1),nMinor+2); 
+                    xm = linspace(x(i),x(i+1),nMinor+2);
                     xm = xm(2:end-1);
-                    ym = linspace(y(i),y(i+1),nMinor+2); 
+                    ym = linspace(y(i),y(i+1),nMinor+2);
                     ym = ym(2:end-1);
                     
                     for j = 1:nMinor
@@ -467,6 +469,7 @@ classdef dicomViewer < handle
             set(tool.handles.Tools.Color,'TooltipString','Select a colormap')
             lp = lp + 4*widthSidePanel;
             
+            %% BUTTONS
             % Create save button
             tool.handles.Tools.Save = ...
                 uicontrol(tool.handles.Panels.Tools,...
@@ -578,7 +581,18 @@ classdef dicomViewer < handle
             set(tool.handles.Tools.Crop ,'Cdata',icon_profile)
             fun=@(hObject,evnt) CropImageCallback(hObject,evnt,tool);
             set(tool.handles.Tools.Crop ,'Callback',fun)
-
+            
+            % NEW STUFF
+            % Create Tracking button
+            tool.handles.Tools.Track = ...
+                uicontrol(tool.handles.Panels.ROItools,...
+                'Style','pushbutton',...
+                'String','***',...
+                'Position',[buff, buff+11*widthSidePanel, widthSidePanel, widthSidePanel],...
+                'TooltipString','Track Pixels ');
+            fun=@(hObject,evnt) pixelTrackCallback(hObject,evnt,tool);
+            set(tool.handles.Tools.Track ,'Callback',fun)
+            
             % Create Help Button
             pos = get(tool.handles.Panels.ROItools,'Position');
             tool.handles.Tools.Help = ...
@@ -635,10 +649,11 @@ classdef dicomViewer < handle
             
             tool.I=I;
             
-            %Update the histogram
+            % Update the histogram
             im=tool.I(:,:,1);
             tool.centers=linspace(min(I(:)),max(I(:)),256);
-            nelements=hist(im(:),tool.centers); nelements=nelements./max(nelements);
+            nelements=hist(im(:),tool.centers);
+            nelements=nelements./max(nelements);
             set(tool.handles.HistLine,'XData',tool.centers,'YData',nelements);
             axes(tool.handles.HistAxes);
             xlim([tool.centers(1) tool.centers(end)])
@@ -646,7 +661,7 @@ classdef dicomViewer < handle
             
             %Update the window and level
             setWL(tool,diff(range),mean(range))
-
+            
             %Update the image
             set(tool.handles.I,'CData',im)
             axes(tool.handles.Axes);
@@ -729,7 +744,7 @@ classdef dicomViewer < handle
                 end
             else
                 ROI=[];
-            end   
+            end
         end
         
         function setCurrentSlice(tool,slice)
@@ -739,7 +754,7 @@ classdef dicomViewer < handle
         function slice = getCurrentSlice(tool)
             slice=round(get(tool.handles.Slider,'value'));
         end
-     
+        
     end
     
     methods (Access = private)
@@ -790,7 +805,7 @@ classdef dicomViewer < handle
                     n=varargin{2};
                 otherwise
                     tool=varargin{1};
-                    n=round(get(tool.handles.Slider,'value'));    
+                    n=round(get(tool.handles.Slider,'value'));
             end
             
             if n < 1
@@ -822,7 +837,7 @@ classdef dicomViewer < handle
                 fun=@(hobject,eventdata)showSlice(tool,[],hobject,eventdata);
                 set(tool.handles.Slider,'Callback',fun);
             end
-              
+            
         end
         
         function setWL(tool,W,L)
@@ -934,6 +949,21 @@ classdef dicomViewer < handle
                     fcn=@(pos) newROIposition(pos,h,tool);
                     addNewPositionCallback(h,fcn);
                     setPosition(h,getPosition(h));
+                    
+                    % TEST CODE FOR TRACKING
+                    pointsToTrack = wait(h);
+                    hold on, plot(pointsToTrack(:,1),pointsToTrack(:,2),'w+')
+                    
+%                     objectFrame = I;
+                    tracker = vision.PointTracker('MaxBidirectionalError', 1);
+%                     initialize(tracker, pointsToTrack, objectFrame);
+%                     for index = 1:10
+%                         frame = step(I);
+%                         [points, validity] = step(tracker, frame);
+%                         out = insertMarker(frame, points(validity, :), '+');
+%                         step(videoPlayer, out);
+%                     end
+                    
                 case 'rectangle'
                     fcn = makeConstrainToRectFcn('imrect',[1 size(tool.I,2)],[1 size(tool.I,1)]);
                     h = imrect(tool.handles.Axes,'PositionConstraintFcn',fcn);
@@ -941,6 +971,11 @@ classdef dicomViewer < handle
                     fcn=@(pos) newROIposition(pos,h,tool);
                     addNewPositionCallback(h,fcn);
                     setPosition(h,getPosition(h));
+                    
+                    % TEST CODE FOR TRACKING
+                    pointsToTrack = getPosition(h);
+                    hold on, plot(pointsToTrack(:,1),pointsToTrack(:,2),'w+')
+                    
                 case 'polygon'
                     fcn = makeConstrainToRectFcn('impoly',[1 size(tool.I,2)],[1 size(tool.I,1)]);
                     h = impoly(tool.handles.Axes,'PositionConstraintFcn',fcn);
@@ -948,6 +983,11 @@ classdef dicomViewer < handle
                     fcn=@(pos) newROIposition(pos,h,tool);
                     addNewPositionCallback(h,fcn);
                     setPosition(h,getPosition(h));
+                    
+                    % TEST CODE FOR TRACKING
+                    pointsToTrack = getPosition(h);
+                    hold on, plot(pointsToTrack(:,1),pointsToTrack(:,2),'w+')
+                    
                 case 'ruler'
                     h = imdistline(tool.handles.Axes);
                     fcn = makeConstrainToRectFcn('imline',[1 size(tool.I,2)],[1 size(tool.I,1)]);
@@ -980,8 +1020,7 @@ classdef dicomViewer < handle
                 'Middle Mouse Button: Zoom', ...
                 'Scroll Wheel: Change Slice',...
                 '',...
-                'Written by Justin Solomon',...
-                'Send questions to justin.solomon@duke.edu'};
+                };
             
             msgbox(message)
         end
@@ -997,9 +1036,23 @@ classdef dicomViewer < handle
             set(tool.handles.Axes,'Xlim',get(tool.handles.I,'XData'))
             set(tool.handles.Axes,'Ylim',get(tool.handles.I,'YData'))
         end
-  
+        
+        % NEW
+        function pixelTrackCallback(hObject,evnt,tool)
+            fcn = makeConstrainToRectFcn('imellipse',[1 size(tool.I,2)],[1 size(tool.I,1)]);
+                    h = imellipse(tool.handles.Axes,'PositionConstraintFcn',fcn);
+                    addhandlesROI(tool,h)
+                    fcn=@(pos) newROIposition(pos,h,tool);
+                    addNewPositionCallback(h,fcn);
+                    setPosition(h,getPosition(h));
+                    
+                    % TEST CODE FOR TRACKING
+                    pointsToTrack = wait(h);
+                    hold on, plot(pointsToTrack(:,1),pointsToTrack(:,2),'w+')
+        end
+        
     end
-
+    
     
 end
 
@@ -1136,43 +1189,43 @@ function icon = makeToolbarIconFromPNG(filename)
 % makeToolbarIconFromPNG  Creates an icon with transparent
 %   background from a PNG image.
 
-%   Copyright 2004 The MathWorks, Inc.  
+%   Copyright 2004 The MathWorks, Inc.
 %   $Revision: 1.1.8.1 $  $Date: 2004/08/10 01:50:31 $
 
-  % Read image and alpha channel if there is one.
-  [icon,map,alpha] = imread(filename);
+% Read image and alpha channel if there is one.
+[icon,map,alpha] = imread(filename);
 
-  % If there's an alpha channel, the transparent values are 0.  For an RGB
-  % image the transparent pixels are [0, 0, 0].  Otherwise the background is
-  % cyan for indexed images.
-  if (ndims(icon) == 3) % RGB
-
+% If there's an alpha channel, the transparent values are 0.  For an RGB
+% image the transparent pixels are [0, 0, 0].  Otherwise the background is
+% cyan for indexed images.
+if (ndims(icon) == 3) % RGB
+    
     idx = 0;
     if ~isempty(alpha)
-      mask = alpha == idx;
+        mask = alpha == idx;
     else
-      mask = icon==idx; 
+        mask = icon==idx;
     end
     
-  else % indexed
+else % indexed
     
     % Look through the colormap for the background color.
     for i=1:size(map,1)
-      if all(map(i,:) == [0 1 1])
-        idx = i;
-        break;
-      end
+        if all(map(i,:) == [0 1 1])
+            idx = i;
+            break;
+        end
     end
     
     mask = icon==(idx-1); % Zero based.
     icon = ind2rgb(icon,map);
     
-  end
-  
-  % Apply the mask.
-  icon = im2double(icon);
-  
-  for p = 1:3
+end
+
+% Apply the mask.
+icon = im2double(icon);
+
+for p = 1:3
     
     tmp = icon(:,:,p);
     if ndims(mask)==3
@@ -1182,7 +1235,7 @@ function icon = makeToolbarIconFromPNG(filename)
     end
     icon(:,:,p) = tmp;
     
-  end
+end
 
 end
 
