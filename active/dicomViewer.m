@@ -975,6 +975,8 @@ classdef dicomViewer < handle
                     % TEST CODE FOR TRACKING
                     pointsToTrack = getPosition(h);
                     hold on, plot(pointsToTrack(:,1),pointsToTrack(:,2),'w+')
+                    assignin('base','pointsOfInterest',pointsToTrack)
+                    
                     
                 case 'polygon'
                     fcn = makeConstrainToRectFcn('impoly',[1 size(tool.I,2)],[1 size(tool.I,1)]);
