@@ -1,5 +1,4 @@
-%% Tracking DICOM image movement
-
+%% Dicom Point Tracker
 %Instruct user to open dicom image
 [fileName, filePath] = uigetfile('*.DCM;*.dcm', ...
                         'Choose DICOM images to import', pwd, ...
@@ -19,7 +18,6 @@ workingDir = tempname;
 mkdir(workingDir);
 mkdir(workingDir,'images');
 
-
 %Create Image Sequence from DICOM file
 for i = 1:dicomFrames
     img = dicomFile(:,:,i);
@@ -37,7 +35,7 @@ imageNumbers = str2double(imageStrings);
 sortedImageNames = imageNames(sortedIndices);
 
 %Construct a video object
-outputVideo = VideoWriter(fullfile('movement.avi'));
+outputVideo = VideoWriter(fullfile('tracker.avi'));
 outputVideo.FrameRate = 5;
 open(outputVideo);
 
@@ -51,36 +49,40 @@ end
 %Finalize the video file
 close(outputVideo);
 
-%Read in the video file
-videoReader = vision.VideoFileReader(...
-    'movement.avi','ImageColorSpace',...
-    'Intensity','VideoOutputDataType','uint8');
-converter = vision.ImageDataTypeConverter; 
-shapeInserter = vision.ShapeInserter('Shape','Lines',...
-    'BorderColor','Custom', 'CustomBorderColor', 255);
-videoPlayer = vision.VideoPlayer('Name','Motion Vector');
 
-% Track the movement of the image. This is the key function to understand here
-opticalFlow = vision.OpticalFlow('ReferenceFrameDelay', 1);
-opticalFlow.OutputValue = ...
-    'Horizontal and vertical components in complex form';
+%Read in video to be analyzed
+videoFileReader = vision.VideoFileReader('tracker.avi');
+videoPlayer = vision.VideoPlayer('Position', [100, 100, 680, 520]);
+objectFrame = step(videoFileReader);
 
-while ~isDone(videoReader)
-    frame = step(videoReader);
-    im = step(converter, frame);
-    of = step(opticalFlow, im);
-    lines = videooptflowlines(of, 100);
-    if ~isempty(lines)
-      out =  step(shapeInserter, im, lines); 
-      step(videoPlayer, out);
-    end
+
+% Get region of interest
+%figure; imshow(objectFrame);
+%objectRegion=round(getPosition(imrect));
+
+%objectImage = insertShape(objectFrame, 'Rectangle', objectRegion,'Color', 'red'); 
+%figure; imshow(objectImage); title('Red box shows object region');
+
+% Declare points to track in the image
+points = detectMinEigenFeatures(rgb2gray(objectFrame));
+pointImage = insertMarker(objectFrame, points.Location, '+', 'Color', 'white');
+%figure, imshow(pointImage), title('Detected interest points');
+
+% Create object tracker
+tracker = vision.PointTracker('MaxBidirectionalError', 1);
+
+% Initialize object tracker
+initialize(tracker, points.Location, objectFrame);
+
+% Show the points getting tracked
+while ~isDone(videoFileReader)
+      frame = step(videoFileReader);
+      [points, validity] = step(tracker, frame);
+      out = insertMarker(frame, points(validity, :), '+');
+      step(videoPlayer, out);      
 end
 
-%Delete temporary video file
-delete 'movement.avi'
-
 release(videoPlayer);
-release(videoReader);
+release(videoFileReader);
 
-
-
+delete 'tracker.avi'
