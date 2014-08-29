@@ -1,5 +1,13 @@
 %% Tracking DICOM image movement
+clear all
+close all
 
+if exist('temp.avi','file')
+    delete 'temp.avi'
+end
+if exist('motion.avi','file')
+    delete 'motion.avi'
+end
 %Instruct user to open dicom image
 [fileName, filePath] = uigetfile('*.DCM;*.dcm', ...
                         'Choose DICOM images to import', pwd, ...
@@ -37,7 +45,7 @@ imageNumbers = str2double(imageStrings);
 sortedImageNames = imageNames(sortedIndices);
 
 %Construct a video object
-outputVideo = VideoWriter(fullfile('movement.avi'));
+outputVideo = VideoWriter(fullfile('temp.avi'));
 outputVideo.FrameRate = 5;
 open(outputVideo);
 
@@ -53,12 +61,14 @@ close(outputVideo);
 
 %Read in the video file
 videoReader = vision.VideoFileReader(...
-    'movement.avi','ImageColorSpace',...
+    'temp.avi','ImageColorSpace',...
     'Intensity','VideoOutputDataType','uint8');
 converter = vision.ImageDataTypeConverter; 
 shapeInserter = vision.ShapeInserter('Shape','Lines',...
     'BorderColor','Custom', 'CustomBorderColor', 255);
-videoPlayer = vision.VideoPlayer('Name','Motion Vector');
+%videoPlayer = vision.VideoPlayer('Name','Motion Vector');
+motionVideo = 'motion.avi';
+videoFWriter = vision.VideoFileWriter(motionVideo);
 
 % Track the movement of the image. This is the key function to understand here
 opticalFlow = vision.OpticalFlow('ReferenceFrameDelay', 1);
@@ -69,18 +79,20 @@ while ~isDone(videoReader)
     frame = step(videoReader);
     im = step(converter, frame);
     of = step(opticalFlow, im);
-    lines = videooptflowlines(of, 100);
+    lines = videooptflowlines(of, 100); %(velocity value, scale factor)
     if ~isempty(lines)
       out =  step(shapeInserter, im, lines); 
-      step(videoPlayer, out);
+      %step(videoPlayer, out);
+      step(videoFWriter,out);
     end
+    
 end
 
 %Delete temporary video file
-delete 'movement.avi'
-
-release(videoPlayer);
+delete 'temp.avi'
 release(videoReader);
-
+release(videoFWriter);
+%Play the motion tracking video
+implay('motion.avi');
 
 

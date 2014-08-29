@@ -1,4 +1,14 @@
 %% Dicom Point Tracker
+clear all
+close all
+
+if exist('temp.avi','file')
+    delete 'temp.avi'
+end
+if exist('tracker.avi','file')
+    delete 'tracker.avi'
+end
+
 %Instruct user to open dicom image
 [fileName, filePath] = uigetfile('*.DCM;*.dcm', ...
                         'Choose DICOM images to import', pwd, ...
@@ -35,7 +45,7 @@ imageNumbers = str2double(imageStrings);
 sortedImageNames = imageNames(sortedIndices);
 
 %Construct a video object
-outputVideo = VideoWriter(fullfile('tracker.avi'));
+outputVideo = VideoWriter(fullfile('temp.avi'));
 outputVideo.FrameRate = 5;
 open(outputVideo);
 
@@ -51,9 +61,11 @@ close(outputVideo);
 
 
 %Read in video to be analyzed
-videoFileReader = vision.VideoFileReader('tracker.avi');
-videoPlayer = vision.VideoPlayer('Position', [100, 100, 680, 520]);
+videoFileReader = vision.VideoFileReader('temp.avi');
+%videoPlayer = vision.VideoPlayer('Position', [100, 100, 680, 520]);
 objectFrame = step(videoFileReader);
+trackerVideo = 'tracker.avi';
+videoFWriter = vision.VideoFileWriter(trackerVideo);
 
 
 % Get region of interest
@@ -79,10 +91,12 @@ while ~isDone(videoFileReader)
       frame = step(videoFileReader);
       [points, validity] = step(tracker, frame);
       out = insertMarker(frame, points(validity, :), '+');
-      step(videoPlayer, out);      
+      %step(videoPlayer, out);
+      step(videoFWriter, out);
 end
-
-release(videoPlayer);
+delete 'temp.avi'
+%release(videoPlayer);
 release(videoFileReader);
+release(videoFWriter);
 
-delete 'tracker.avi'
+implay('tracker.avi');
