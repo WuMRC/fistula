@@ -163,7 +163,7 @@ classdef dicomViewer < handle
             if isempty(I)
                 I=random('unif',-50,50,[100 100 3]);
             end
-            
+            oldI = I; %Save backup of original image data so that it can be recalled later.
             if isempty(position)
                 position=[0 0 1 1];
             end
@@ -195,7 +195,7 @@ classdef dicomViewer < handle
             I=double(I);
             
             %--------------------------------------------------------------
-            tool.I = I;
+            tool.I = I
             tool.handles.fig = heightHistogram;
             handlesROI = [];
             currentROI = [];
@@ -537,7 +537,7 @@ classdef dicomViewer < handle
             tool.handles.Tools.ExportROI = ...
                 uicontrol(tool.handles.Panels.ROItools,...
                 'Style','pushbutton',...
-                'String','->',...
+                'String','ex',...
                 'Position',[buff, buff+4*widthSidePanel, widthSidePanel, widthSidePanel],...
                 'TooltipString','Export ROI to Workspace',...
                 'ForegroundColor','k');
@@ -1076,31 +1076,99 @@ classdef dicomViewer < handle
         
         % NEW
         function pixelTrackCallback(hObject,evnt,tool)
-            fcn = makeConstrainToRectFcn('imellipse',[1 size(tool.I,2)],[1 size(tool.I,1)]);
-                    h = imellipse(tool.handles.Axes,'PositionConstraintFcn',fcn);
-                    addhandlesROI(tool,h)
-                    fcn=@(pos) newROIposition(pos,h,tool);
-                    addNewPositionCallback(h,fcn);
-                    setPosition(h,getPosition(h));
+              
+              if ~isempty(tool.currentROI)                 
+                  if isvalid(tool.currentROI)
+                    dicomSize = size(tool.I);
+                    dicomFrames = dicomSize(3);
+
+                    %newFileName = 'tracker.dcm';
+                    newI = tool.I; 
+
+                    % Get region of interest
+                    framenum = 1;
+                    objectFrame = tool.I(:,:,framenum);
+                    objectRegion = tool.currentROI;
+
+                    % Declare points to track in the image
+                    points = detectMinEigenFeatures(objectFrame);
+                    pointImage = insertMarker(objectFrame, points.Location, '+', 'Color', 'white');
+                    newI(:,:,1) = pointImage(:,:,1);
                     
-                    % TEST CODE FOR TRACKING
-                    pointsToTrack = wait(h);
-                    hold on, plot(pointsToTrack(:,1),pointsToTrack(:,2),'w+')
+                    % Create object tracker
+                    tracker = vision.PointTracker('MaxBidirectionalError', 1);
+
+                    % Initialize object tracker
+                    initialize(tracker, points.Location, objectFrame);
+
+                    % Show the points getting tracked
+                    while framenum < dicomFrames
+
+                          framenum = framenum + 1;
+                          frame = tool.I(:,:,framenum);
+                          [points, validity] = step(tracker, frame);
+                          out = insertMarker(frame, points(validity, :), '+', 'Color', 'white');
+                          newI(:,:,framenum) = out(:,:,1);
+                    end
+                    dicomViewer(newI);                  
+                    
+                  else
+                    msgbox('Please select a region of interest');
+                    return;
+                  end
+              else
+                  msgbox('Please select a region of interest');
+                  return;
+              end
         end
         
         function pixelMotionCallback(hObject,evnt,tool)
-            fcn = makeConstrainToRectFcn('imellipse',[1 size(tool.I,2)],[1 size(tool.I,1)]);
-                    h = imellipse(tool.handles.Axes,'PositionConstraintFcn',fcn);
-                    addhandlesROI(tool,h)
-                    fcn=@(pos) newROIposition(pos,h,tool);
-                    addNewPositionCallback(h,fcn);
-                    setPosition(h,getPosition(h));
+            if ~isempty(tool.currentROI)                 
+                  if isvalid(tool.currentROI)
+                    dicomSize = size(tool.I);
+                    dicomFrames = dicomSize(3);
+
+                    %newFileName = 'tracker.dcm';
+                    newI = tool.I; 
+
+                    % Get region of interest
+                    framenum = 1;
+                    objectFrame = tool.I(:,:,framenum);
+                    objectRegion = tool.currentROI;
+
+                    %Assign motion vector functions
+                    converter = vision.ImageDataTypeConverter; 
+                    shapeInserter = vision.ShapeInserter('Shape','Lines',...
+                        'BorderColor','Custom', 'CustomBorderColor', 255);
+
+                    % Track the movement of the image. This is the key function to understand here
+                    opticalFlow = vision.OpticalFlow('ReferenceFrameDelay', 1);
+                    opticalFlow.OutputValue = ...
+                        'Horizontal and vertical components in complex form';
+
+                    while framenum < dicomFrames
+
+                        framenum = framenum + 1;
+                        frame = tool.I(:,:,framenum);
+                        im = step(converter, frame);
+                        of = step(opticalFlow, im);
+                        lines = videooptflowlines(of, 10); %(velocity value, scale factor)
+                        if ~isempty(lines)
+                          out =  step(shapeInserter, im, lines); 
+                          newI(:,:,framenum) = out(:,:,1);
+                        end
+                    end
+                    dicomViewer(newI);                  
                     
-                    % TEST CODE FOR Motion
-                    pointsForMotion = wait(h);
-                    hold on, plot(pointsForMotion(:,1),pointsForMotion(:,2),'w+')
-        end
-        
+                  else
+                    msgbox('Please select a region of interest');
+                    return;
+                  end
+              else
+                  msgbox('Please select a region of interest');
+                  return;
+             end
+           end
         
     end
     
