@@ -2,12 +2,9 @@
 clear all
 close all
 
-if exist('temp.avi','file')
-    delete 'temp.avi'
-end
-if exist('motion.avi','file')
-    delete 'motion.avi'
-end
+delete 'temp.avi'
+delete 'motion.avi'
+
 %Instruct user to open dicom image
 [fileName, filePath] = uigetfile('*.DCM;*.dcm', ...
                         'Choose DICOM images to import', pwd, ...

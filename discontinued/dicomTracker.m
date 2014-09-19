@@ -2,12 +2,8 @@
 clear all
 close all
 
-if exist('temp.avi','file')
-    delete 'temp.avi'
-end
-if exist('tracker.avi','file')
-    delete 'tracker.avi'
-end
+delete 'temp.avi'
+delete 'tracker.avi'
 
 %Instruct user to open dicom image
 [fileName, filePath] = uigetfile('*.DCM;*.dcm', ...
