@@ -124,7 +124,7 @@ classdef dicomViewer < handle
                         'Choose DICOM images to import', pwd, ...
                         'MultiSelect', 'off');
                     if filePath(1) == 0
-                        disp('No files chosen')
+                        disp('No files chosen, random image generated')
                         I = random('unif',-50, 50, [100, 100, 3]);
                         position = [0, 0, 1, 1];
                         heightHistogram = figure;
@@ -138,8 +138,6 @@ classdef dicomViewer < handle
                         set(heightHistogram,'Toolbar','none','Menubar','none')
                         pixelValueRange = [min(I(:)), max(I(:))];
                     end
-                    
-                    
                 case 1  %tool = dicomViewer(I)
                     I = varargin{1}; position=[0 0 1 1];
                     heightHistogram=figure;
@@ -589,9 +587,29 @@ classdef dicomViewer < handle
                 'Style','pushbutton',...
                 'String','***',...
                 'Position',[buff, buff+11*widthSidePanel, widthSidePanel, widthSidePanel],...
-                'TooltipString','Track Pixels ');
+                'TooltipString','Track Pixels in ROI ');
             fun=@(hObject,evnt) pixelTrackCallback(hObject,evnt,tool);
             set(tool.handles.Tools.Track ,'Callback',fun)
+            
+            %Create Motion Vector button
+            tool.handles.Tools.Motion = ...
+                uicontrol(tool.handles.Panels.ROItools,...
+                'Style','pushbutton',...
+                'String','-->',...
+                'Position',[buff, buff+12*widthSidePanel, widthSidePanel, widthSidePanel],...
+                'TooltipString','Create Motion Vectors for pixels in ROI ');
+            fun=@(hObject,evnt) pixelMotionCallback(hObject,evnt,tool);
+            set(tool.handles.Tools.Motion ,'Callback',fun)
+            
+            %Create Calibration Button
+            tool.handles.Tools.Calibrate = ...
+                uicontrol(tool.handles.Panels.ROItools,...
+                'Style','pushbutton',...
+                'String','cal',...
+                'Position',[buff, buff+13*widthSidePanel, widthSidePanel, widthSidePanel],...
+                'TooltipString','Calibrate image pixels to mm ');
+            fun = @(hObject,evnt) measureImageCallback(hObject,evnt,tool,'calibrate');
+            set(tool.handles.Tools.Calibrate,'Callback',fun)
             
             % Create Help Button
             pos = get(tool.handles.Panels.ROItools,'Position');
@@ -994,6 +1012,23 @@ classdef dicomViewer < handle
                     h = imdistline(tool.handles.Axes);
                     fcn = makeConstrainToRectFcn('imline',[1 size(tool.I,2)],[1 size(tool.I,1)]);
                     setPositionConstraintFcn(h,fcn);
+                    
+                case 'calibrate'
+                    h = imdistline(tool.handles.Axes);
+                    fcn = makeConstrainToRectFcn('imline',[1 size(tool.I,2)],[1 size(tool.I,1)]);
+                    setPositionConstraintFcn(h,fcn);
+                    distance = num2str(getDistance(h));
+                    disp (distance);
+                    prompt = {'Pixels:','Distance (mm):'};
+                    dlg_title = 'Input';
+                    num_lines = 1;
+                    default = {distance,' '};
+                    options.Resize='on';
+                    options.WindowStyle='normal';
+                    answer = inputdlg(prompt,dlg_title,num_lines,default,options);
+                    pixels = str2num(answer{1,1}); mm = str2num(answer{2,1});
+                    calfactor = mm/pixels; %May need to make it a global variable
+                                        
                 case 'profile'
                     axes(tool.handles.Axes);
                     improfile(); grid on;
@@ -1052,6 +1087,20 @@ classdef dicomViewer < handle
                     pointsToTrack = wait(h);
                     hold on, plot(pointsToTrack(:,1),pointsToTrack(:,2),'w+')
         end
+        
+        function pixelMotionCallback(hObject,evnt,tool)
+            fcn = makeConstrainToRectFcn('imellipse',[1 size(tool.I,2)],[1 size(tool.I,1)]);
+                    h = imellipse(tool.handles.Axes,'PositionConstraintFcn',fcn);
+                    addhandlesROI(tool,h)
+                    fcn=@(pos) newROIposition(pos,h,tool);
+                    addNewPositionCallback(h,fcn);
+                    setPosition(h,getPosition(h));
+                    
+                    % TEST CODE FOR Motion
+                    pointsForMotion = wait(h);
+                    hold on, plot(pointsForMotion(:,1),pointsForMotion(:,2),'w+')
+        end
+        
         
     end
     
