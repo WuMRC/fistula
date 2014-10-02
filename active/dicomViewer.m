@@ -6,7 +6,7 @@ classdef dicomViewer < handle
     %   a GUI (or any figure). Similar to imtool but with slice scrolling.
     %   Only designed to view grayscale (intensity) images. Use the mouse
     %   to control how the image is displayed. A left click allows window
-    %   and leveling, a right click is for panning, and a middle click is
+    %   ad leveling, a right click is for panning, and a middle click is
     %   for zooming. Also the scroll wheel can be used to scroll through
     %   slices.
     %----------------------------------------------------------------------
@@ -1149,6 +1149,7 @@ classdef dicomViewer < handle
                     while framenum < dicomFrames
 
                         framenum = framenum + 1;
+                        
                         frame = tool.I(:,:,framenum);
                         im = step(converter, frame);
                         of = step(opticalFlow, im);
