@@ -585,9 +585,9 @@ classdef dicomViewer < handle
             tool.handles.Tools.Track = ...
                 uicontrol(tool.handles.Panels.ROItools,...
                 'Style','pushbutton',...
-                'String','***',...
+                'String','* *',...
                 'Position',[buff, buff+11*widthSidePanel, widthSidePanel, widthSidePanel],...
-                'TooltipString','Track Pixels in ROI ');
+                'TooltipString','Track 2 Points in the Image ');
             fun=@(hObject,evnt) pixelTrackCallback(hObject,evnt,tool);
             set(tool.handles.Tools.Track ,'Callback',fun)
             
@@ -968,20 +968,7 @@ classdef dicomViewer < handle
                     addNewPositionCallback(h,fcn);
                     setPosition(h,getPosition(h));
                     
-                    % TEST CODE FOR TRACKING
-                    pointsToTrack = wait(h);
-                    hold on, plot(pointsToTrack(:,1),pointsToTrack(:,2),'w+')
-                    
-%                     objectFrame = I;
-                    tracker = vision.PointTracker('MaxBidirectionalError', 1);
-%                     initialize(tracker, pointsToTrack, objectFrame);
-%                     for index = 1:10
-%                         frame = step(I);
-%                         [points, validity] = step(tracker, frame);
-%                         out = insertMarker(frame, points(validity, :), '+');
-%                         step(videoPlayer, out);
-%                     end
-                    
+                            
                 case 'rectangle'
                     fcn = makeConstrainToRectFcn('imrect',[1 size(tool.I,2)],[1 size(tool.I,1)]);
                     h = imrect(tool.handles.Axes,'PositionConstraintFcn',fcn);
@@ -990,12 +977,6 @@ classdef dicomViewer < handle
                     addNewPositionCallback(h,fcn);
                     setPosition(h,getPosition(h));
                     
-                    % TEST CODE FOR TRACKING
-                    pointsToTrack = getPosition(h);
-                    hold on, plot(pointsToTrack(:,1),pointsToTrack(:,2),'w+')
-                    assignin('base','pointsOfInterest',pointsToTrack)
-                    
-                    
                 case 'polygon'
                     fcn = makeConstrainToRectFcn('impoly',[1 size(tool.I,2)],[1 size(tool.I,1)]);
                     h = impoly(tool.handles.Axes,'PositionConstraintFcn',fcn);
@@ -1003,11 +984,7 @@ classdef dicomViewer < handle
                     fcn=@(pos) newROIposition(pos,h,tool);
                     addNewPositionCallback(h,fcn);
                     setPosition(h,getPosition(h));
-                    
-                    % TEST CODE FOR TRACKING
-                    pointsToTrack = getPosition(h);
-                    hold on, plot(pointsToTrack(:,1),pointsToTrack(:,2),'w+')
-                    
+                     
                 case 'ruler'
                     h = imdistline(tool.handles.Axes);
                     fcn = makeConstrainToRectFcn('imline',[1 size(tool.I,2)],[1 size(tool.I,1)]);
@@ -1077,50 +1054,61 @@ classdef dicomViewer < handle
         % NEW
         function pixelTrackCallback(hObject,evnt,tool)
               
-              if ~isempty(tool.currentROI)                 
-                  if isvalid(tool.currentROI)
                     dicomSize = size(tool.I);
                     dicomFrames = dicomSize(3);
-
-                    %newFileName = 'tracker.dcm';
+                    
                     newI = tool.I; 
-
+                    
                     % Get region of interest
                     framenum = 1;
                     objectFrame = tool.I(:,:,framenum);
                     objectRegion = tool.currentROI;
+                    
+                    %Select Points to Track
+                    msgbox('Select two points to track, then hit "Enter"');
+                    close;
+                    figHandle = gcf;
+                    [poiX, poiY] = getpts(figHandle);
 
-                    % Declare points to track in the image
-                    points = detectMinEigenFeatures(objectFrame);
-                    pointImage = insertMarker(objectFrame, points.Location, '+', 'Color', 'white');
-                    newI(:,:,1) = pointImage(:,:,1);
+                    poiX = round(poiX);     poiY = round(poiY);
+                    nPoints = size(poiX,1);
+                    pointLog = zeros(nPoints, 2, dicomFrames);
+                    points = [poiX, poiY];
+                    pointImage = insertMarker(objectFrame, points, '+', 'Color', 'white');
+
+                    pointDist = zeros(dicomFrames);
                     
                     % Create object tracker
-                    tracker = vision.PointTracker('MaxBidirectionalError', 1);
+                    tracker = vision.PointTracker('MaxBidirectionalError', 3);
 
                     % Initialize object tracker
-                    initialize(tracker, points.Location, objectFrame);
+                    initialize(tracker, points(:,:,1), objectFrame);
 
                     % Show the points getting tracked
-                    while framenum < dicomFrames
-
-                          framenum = framenum + 1;
-                          frame = tool.I(:,:,framenum);
+                    while framenum <= dicomFrames
+                         %Track the points     
+                          frame =tool.I(:,:,framenum);
                           [points, validity] = step(tracker, frame);
+                          pointLog(:,:,framenum) = points;
                           out = insertMarker(frame, points(validity, :), '+', 'Color', 'white');
                           newI(:,:,framenum) = out(:,:,1);
+
+                          %Compute the distance between the 2 points
+                          pointDist(framenum) = sqrt ((pointLog(1,1,framenum) - pointLog(2,1,framenum))^2+(pointLog(1,2,framenum) - pointLog(2,2,framenum))^2);
+
+                          framenum = framenum + 1;
                     end
-                    dicomViewer(newI);                  
+                    %dicomViewer(newI);
+                    tool.I = newI;
                     
-                  else
-                    msgbox('Please select a region of interest');
-                    return;
-                  end
-              else
-                  msgbox('Please select a region of interest');
-                  return;
-              end
+                    time = 1:1:dicomFrames;
+                    figure;
+                    plot(time, pointDist)
+                    xlabel('Time'); ylabel('Distance (pixels)')
+                    title('Distance between 2 points')
+                    
         end
+     
         
         function pixelMotionCallback(hObject,evnt,tool)
             if ~isempty(tool.currentROI)                 
