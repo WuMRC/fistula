@@ -84,7 +84,24 @@ cd('/Users/barrybelmont/Google Drive/MATLAB/fistula/active');
 %SELECT REGION OF INTEREST
 imageROI = dicomROI(image_change);
 
-size(imageROI)
+[nRows, nCols, nFrames] = size(imageROI);
+%%
+% GRAYTHRESH EDGE DETECT
+indFrame = 1;
+while indFrame <= nFrames
+    imageROI_adjusted(:,:,indFrame) = imadjust(imageROI(:,:,indFrame));
+    imageROI_level(indFrame) = graythresh(imageROI(:,:,indFrame));
+    imageROI_BW(:,:,indFrame) = im2bw(imageROI(:,:,indFrame),...
+        imageROI_level(indFrame));
+    indFrame = indFrame + 1;
+end
+
+    % An interesting result
+    time = (1:99)./16;
+    plot(time,imageROI_level)
+    xlabel('Time [s]')
+    ylabel('Graythreshold')
+    title('A heartbeat measure by image contrast')
 
 
 
