@@ -72,7 +72,20 @@ implay(newDicom)
 
 
 %% Detect edge
-% Barry
+% SELECT FILE TO WORK WITH
+cd('/Users/barrybelmont/Google Drive/MATLAB/fistuladata/exampleData3');
+% load('IM-0002-0100-0001anon.mat');      % bifurcation
+% load('IM-0003-0101-0001anon.mat');      % long axis
+load('IM-0004-0103-0001anon.mat');      % RT DIST NEAR ANTECUBE
+% load('IM-0006-0103-0001anon.mat');      % ANAST
+% load('IM-0007-0104-0001anon.mat');      % RT ANAST 2 CM ABOVE
+cd('/Users/barrybelmont/Google Drive/MATLAB/fistula/active');
+
+%SELECT REGION OF INTEREST
+imageROI = dicomROI(image_change);
+
+size(imageROI)
+
 
 
 %% Track edge
@@ -85,3 +98,6 @@ implay(newDicom)
 
 
 %% Correlation within vessel
+
+
+
