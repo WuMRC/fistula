@@ -19,6 +19,13 @@ dicomFile = permute(dicomread(fileName),[1, 2, 4, 3]);
 dicomSize = size(dicomFile);
 dicomFrames = dicomSize(3);
 
+%Adjust image
+indFrame = 1;
+while indFrame <= dicomFrames
+   dicomFile(:,:,indFrame) = imadjust(dicomFile(:,:,indFrame));
+    indFrame = indFrame + 1;
+end
+
 % Get region of interest
 framenum = 1;
 objectFrame = dicomFile(:,:,framenum);
@@ -68,7 +75,7 @@ xlabel('Time'); ylabel('Distance (pixels)')
 title('Distance between 2 points')
 
 %Show tracked points in the image
-implay(newDicom)
+implay(newDicom(:,:,:,1))
 
 
 %% Detect edge
