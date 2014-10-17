@@ -119,8 +119,91 @@ implay(imageROI_BW)
 % Barry & Luc's code
 
 
-%% Block-match/point track entire region of interest for strain
+%% Block-match
+
+%% Point track entire region of interest for strain
 % Luc & Barry
+%Instruct user to open dicom image
+
+clear all
+[fileName, filePath] = uigetfile('*.DCM;*.dcm', ...
+                        'Choose DICOM images to import', pwd, ...
+                        'MultiSelect', 'off');
+
+if filePath(1) == 0
+    disp('No file selected. Exiting function.')
+    return
+end
+
+disp(['User selected: ', fullfile(fileName)]);
+dicomFile = permute(dicomread(fileName),[1, 2, 4, 3]);
+dicomSize = size(dicomFile);
+dicomFrames = dicomSize(3);
+
+%Adjust image
+indFrame = 1;
+while indFrame <= dicomFrames
+   dicomFile(:,:,indFrame) = imadjust(dicomFile(:,:,indFrame));
+    indFrame = indFrame + 1;
+end
+
+%Create grid of points on the image
+pixelsX = dicomSize(1); pixelsY = dicomSize(2);
+pixelsBetween = 12;
+count = 1;
+countX = 1;
+while countX <= pixelsX
+    countY=1;
+    while countY <= pixelsY
+        points(count,:) = [countX countY];
+        countY = countY + pixelsBetween;
+        count = count+1;
+    end
+    countX = countX + pixelsBetween;
+end
+
+nPoints = size(points); nPoints = nPoints(1);
+pointLog = zeros(nPoints, 2, dicomFrames);
+
+framenum = 1;
+objectFrame = dicomFile(:,:,1);
+pointImage = insertMarker(objectFrame, points, '+', 'Color', 'white');
+
+pointDist = zeros(dicomFrames);
+newDicom = dicomFile;
+newDicom(:,:,1) = pointImage(:,:,1);
+
+% Create object tracker
+tracker = vision.PointTracker('MaxBidirectionalError', 1);
+
+% Initialize object tracker
+initialize(tracker, points(:,:,1), objectFrame);
+
+
+while framenum <= dicomFrames
+       %Track the points     
+      frame = dicomFile(:,:,framenum);
+      [points, validity] = step(tracker, frame);
+      pointLog(:,:,framenum) = points;
+      out = insertMarker(frame, points(validity, :), '+', 'Color', 'white');
+      newDicom(:,:,framenum+1) = out(:,:,1);
+      
+      %Compute the distance between the 2 points
+      %pointDist(framenum) = sqrt ((pointLog(1,1,framenum) - pointLog(2,1,framenum))^2+(pointLog(1,2,framenum) - pointLog(2,2,framenum))^2);
+      
+      framenum = framenum + 1;
+      
+end
+%Display figure showing distance between the points
+% time = 1:1:dicomFrames;
+% 
+% % plot(time, pointDist)
+% % xlabel('Time'); ylabel('Distance (pixels)')
+% % title('Distance between 2 points')
+% % 
+
+%Show tracked points in the image
+implay(newDicom(:,:,:,1))
 
 
 
