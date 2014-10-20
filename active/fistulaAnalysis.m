@@ -149,20 +149,22 @@ end
 
 %Create grid of points on the image
 pixelsX = dicomSize(1); pixelsY = dicomSize(2);
-pixelsBetween = 12;
+pixelDensity = 20; %percentage of pixels you want to track (between 0-100)
+pixelsBetweenX = (pixelsX-1)/round((pixelsX-1)*pixelDensity/100);
+pixelsBetweenY = (pixelsY-1)/round((pixelsY-1)*pixelDensity/100);
 count = 1;
 countX = 1;
-while countX <= pixelsX
+while countX <= pixelsX+.001
     countY=1;
-    while countY <= pixelsY
+    while countY <= pixelsY+.001
         points(count,:) = [countX countY];
-        countY = countY + pixelsBetween;
+        countY = countY + pixelsBetweenY;
         count = count+1;
     end
-    countX = countX + pixelsBetween;
+    countX = countX + pixelsBetweenX;
 end
 
-nPoints = size(points); nPoints = nPoints(1);
+nPoints = count - 1;
 pointLog = zeros(nPoints, 2, dicomFrames);
 
 framenum = 1;
