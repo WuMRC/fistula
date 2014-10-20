@@ -6,7 +6,7 @@
 % Luc
 clear all
 %Instruct user to open dicom image
-[fileName, filePath] = uigetfile('*.DCM;*.dcm', ...
+[fileName, filePath] = uigetfile('*.DCM;*.dcm;*.mat', ...
                         'Choose DICOM images to import', pwd, ...
                         'MultiSelect', 'off');
 
@@ -131,9 +131,8 @@ implay(imageROI_BW)
 
 %% Point track entire region of interest for strain
 % Luc & Barry
-%Instruct user to open dicom image
-
 clear all
+
 %Instruct user to open dicom image
 [fileName, filePath] = uigetfile('*.DCM;*.dcm;*.mat', ...
                         'Choose DICOM images to import', pwd, ...
@@ -160,8 +159,11 @@ dicomFrames = dicomSize(3);
 indFrame = 1;
 while indFrame <= dicomFrames
    dicomFile(:,:,indFrame) = imadjust(dicomFile(:,:,indFrame));
+%     enhancer = vision.HistogramEqualizer;
+%     dicomFile(:,:,indFrame) = step(enhancer, dicomFile(:,:,indFrame));
     indFrame = indFrame + 1;
 end
+
 
 %Create grid of points on the image
 pixelsX = dicomSize(2); pixelsY = dicomSize(1);
@@ -223,7 +225,64 @@ end
 %Show tracked points in the image
 implay(newDicom(:,:,:,1))
 
+%% Edge Detection
 
+clear all
+%Instruct user to open dicom image
+[fileName, filePath] = uigetfile('*.DCM;*.dcm;*.mat', ...
+                        'Choose DICOM images to import', pwd, ...
+                        'MultiSelect', 'off');
+
+if filePath(1) == 0
+    disp('No file selected. Exiting function.')
+    return
+end
+
+disp(['User selected: ', fullfile(fileName)]);
+[pathstr, name, ext] = fileparts(fileName);
+
+if strcmp(ext,'.DCM') || strcmp(ext,'.dcm')
+    dicomFile = permute(dicomread(fileName),[1, 2, 4, 3]);
+else
+    load( fileName);
+    dicomFile = permute(image_change,[1 2 4 3]);
+end
+
+dicomSize = size(dicomFile);
+dicomFrames = dicomSize(3);
+
+%Adjust image
+indFrame = 1;
+while indFrame <= dicomFrames
+   %dicomFile(:,:,indFrame) = imadjust(dicomFile(:,:,indFrame));
+   enhancer = vision.HistogramEqualizer;
+   dicomFile(:,:,indFrame) = step(enhancer, dicomFile(:,:,indFrame));
+   indFrame = indFrame + 1;
+end
+
+framenum = 1;
+
+%Initialize edge detection functions
+hedge = vision.EdgeDetector;
+hcsc = vision.ColorSpaceConverter('Conversion', 'RGB to intensity');
+hidtypeconv = vision.ImageDataTypeConverter('OutputDataType','single');
+
+while framenum <= dicomFrames
+       %Track the points     
+      frame = dicomFile(:,:,framenum);
+      %convframe1 = step(hcsc, frame); 
+      convframe2  = step(hidtypeconv, frame);   
+      
+      edge = step(hedge, convframe2);
+      edges(:,:,framenum) = edge;
+        
+      framenum = framenum + 1;
+      
+end
+
+%Play videos showing edges and original file
+implay(edges)
+implay(dicomFile(:,:,:,1))
 
 %% Correlation within vessel
 %Barry
