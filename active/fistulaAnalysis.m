@@ -4,6 +4,7 @@
 
 %% Pick two points and track with time
 % Luc
+clear all
 %Instruct user to open dicom image
 [fileName, filePath] = uigetfile('*.DCM;*.dcm', ...
                         'Choose DICOM images to import', pwd, ...
@@ -15,10 +16,17 @@ if filePath(1) == 0
 end
 
 disp(['User selected: ', fullfile(fileName)]);
-dicomFile = permute(dicomread(fileName),[1, 2, 4, 3]);
+[pathstr, name, ext] = fileparts(fileName);
+
+if strcmp(ext,'.DCM') || strcmp(ext,'.dcm')
+    dicomFile = permute(dicomread(fileName),[1, 2, 4, 3]);
+else
+    load( fileName);
+    dicomFile = permute(image_change,[1 2 4 3]);
+end
+
 dicomSize = size(dicomFile);
 dicomFrames = dicomSize(3);
-
 %Adjust image
 indFrame = 1;
 while indFrame <= dicomFrames
@@ -126,7 +134,8 @@ implay(imageROI_BW)
 %Instruct user to open dicom image
 
 clear all
-[fileName, filePath] = uigetfile('*.DCM;*.dcm', ...
+%Instruct user to open dicom image
+[fileName, filePath] = uigetfile('*.DCM;*.dcm;*.mat', ...
                         'Choose DICOM images to import', pwd, ...
                         'MultiSelect', 'off');
 
@@ -136,10 +145,17 @@ if filePath(1) == 0
 end
 
 disp(['User selected: ', fullfile(fileName)]);
-dicomFile = permute(dicomread(fileName),[1, 2, 4, 3]);
+[pathstr, name, ext] = fileparts(fileName);
+
+if strcmp(ext,'.DCM') || strcmp(ext,'.dcm')
+    dicomFile = permute(dicomread(fileName),[1, 2, 4, 3]);
+else
+    load( fileName);
+    dicomFile = permute(image_change,[1 2 4 3]);
+end
+
 dicomSize = size(dicomFile);
 dicomFrames = dicomSize(3);
-
 %Adjust image
 indFrame = 1;
 while indFrame <= dicomFrames
@@ -148,8 +164,8 @@ while indFrame <= dicomFrames
 end
 
 %Create grid of points on the image
-pixelsX = dicomSize(1); pixelsY = dicomSize(2);
-pixelDensity = 20; %percentage of pixels you want to track (between 0-100)
+pixelsX = dicomSize(2); pixelsY = dicomSize(1);
+pixelDensity = 10; %percentage of pixels you want to track (between 0-100)
 pixelsBetweenX = (pixelsX-1)/round((pixelsX-1)*pixelDensity/100);
 pixelsBetweenY = (pixelsY-1)/round((pixelsY-1)*pixelDensity/100);
 count = 1;
@@ -176,7 +192,7 @@ newDicom = dicomFile;
 newDicom(:,:,1) = pointImage(:,:,1);
 
 % Create object tracker
-tracker = vision.PointTracker('MaxBidirectionalError', 1);
+tracker = vision.PointTracker('MaxBidirectionalError', 3); 
 
 % Initialize object tracker
 initialize(tracker, points(:,:,1), objectFrame);
