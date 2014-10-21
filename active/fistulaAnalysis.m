@@ -181,10 +181,14 @@ end
 %Create grid of points on the image
 pixelsX = dicomSize(2); pixelsY = dicomSize(1);
 pixelDensity = 10; %percentage of pixels you want to track (between 0-100)
-pixelsBetweenX = (pixelsX-1)/round((pixelsX-1)*pixelDensity/100);
+
+% May want to choose a decimation factor?
+pixelsBetweenX = round((pixelsX-1)/round((pixelsX-1)*pixelDensity/100));
 pixelsBetweenY = (pixelsY-1)/round((pixelsY-1)*pixelDensity/100);
 count = 1;
 countX = 1;
+
+% We get an image that is 57 x 81 = 4617
 while countX <= pixelsX+.001
     countY=1;
     while countY <= pixelsY+.001
@@ -194,6 +198,7 @@ while countX <= pixelsX+.001
     end
     countX = countX + pixelsBetweenX;
 end
+
 
 nPoints = count - 1;
 pointLog = zeros(nPoints, 2, dicomFrames);
@@ -301,3 +306,46 @@ implay(dicomFile(:,:,:,1))
 %Barry
 
 
+
+
+%% Strain
+% It's tough to unpack the way the points are currently used
+% I think there could probably be some revision in the future to addres
+% this
+
+% Simple difference
+for indFrames = 1:99-1
+    pointLogDiff(:,:,indFrames) = pointLog(:,:,indFrames+1) ...
+        - pointLog(:,:,indFrames);
+end
+% Test
+plot(permute(pointLogDiff(2003,2,:),[1 3 2]))
+
+
+% % Get the points
+% counter = 1;
+% for indFrame = 1:99
+%     for ind = 1:57:4617
+%         xPoints(:,counter,indFrame) = pointLog(ind:(ind+56),1,indFrame);
+%         yPoints(:,counter,indFrame) = pointLog(ind:(ind+56),2,indFrame);
+%         counter = counter+1;
+%     end
+%     counter = 1;
+% end
+
+% Get the difference
+counter = 1;
+for indFrame = 1:99-1
+    for ind = 1:57:4617
+        xDiff(:,counter,indFrame) = pointLogDiff(ind:(ind+56),1,indFrame);
+        yDiff(:,counter,indFrame) = pointLogDiff(ind:(ind+56),2,indFrame);
+        counter = counter+1;
+    end
+    counter = 1;
+end
+totalDiff = sqrt(xDiff.^2 + yDiff.^2);
+
+% Strain video
+% implay(xDiff)
+% implay(yDiff)
+implay(totalDiff)
