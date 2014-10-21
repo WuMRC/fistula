@@ -51,7 +51,7 @@ pointLog = zeros(nPoints, 2, dicomFrames);
 points = [poiX, poiY];
 pointImage = insertMarker(objectFrame, points, '+', 'Color', 'white');
 
-pointDist = zeros(dicomFrames);
+pointDist = zeros(dicomFrames,1);
 newDicom = dicomFile;
 
 % Create object tracker
@@ -70,16 +70,29 @@ while framenum <= dicomFrames
       newDicom(:,:,framenum) = out(:,:,1);
       
       %Compute the distance between the 2 points
-      pointDist(framenum) = sqrt ((pointLog(1,1,framenum) - pointLog(2,1,framenum))^2+(pointLog(1,2,framenum) - pointLog(2,2,framenum))^2);
+      pointDist(framenum) = sqrt ((pointLog(1,1,framenum) - pointLog(2,1,framenum)).^2+(pointLog(1,2,framenum) - pointLog(2,2,framenum)).^2);
       
       framenum = framenum + 1;
       
 end
-%Display figure showing distance between the points
-time = 1:1:dicomFrames;
 
+%Display figure showing distance between the points
+sampFreq = 16;  % Taken from image, though the DICOM should have this
+time = (1:dicomFrames)/sampFreq;
+
+
+% Plot the tracked pixel movement
 plot(time, pointDist)
-xlabel('Time'); ylabel('Distance (pixels)')
+xlabel('Time [s]'); ylabel('Distance [px]')
+title('Distance between 2 points')
+
+% Get envelope of tracked motion
+envTop = envelope(time,pointDist,'top',sampFreq,'linear');
+envBot = envelope(time,pointDist,'bottom',sampFreq,'linear');
+hold on, plot(time, envTop,'r'), plot(time,envBot,'r')
+
+figure, plot(time(11:93),envTop(11:93)-envBot(11:93))
+xlabel('Time [s]'); ylabel('Diameter [px]')
 title('Distance between 2 points')
 
 %Show tracked points in the image
