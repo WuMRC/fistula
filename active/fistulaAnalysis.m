@@ -180,18 +180,24 @@ end
 
 %Create grid of points on the image
 pixelsX = dicomSize(2); pixelsY = dicomSize(1);
-pixelDensity = 10; %percentage of pixels you want to track (between 0-100)
+pixelDensity = 20; %percentage of pixels you want to track (between 0-100)
+
+if pixelDensity >100
+    pixelDensity = 100;
+elseif pixelDensity <=0;
+    pixelDensity = 1;
+end
 
 % May want to choose a decimation factor?
-pixelsBetweenX = round((pixelsX-1)/round((pixelsX-1)*pixelDensity/100));
+pixelsBetweenX = (pixelsX-1)/round((pixelsX-1)*pixelDensity/100);
 pixelsBetweenY = (pixelsY-1)/round((pixelsY-1)*pixelDensity/100);
 count = 1;
 countX = 1;
 
-% We get an image that is 57 x 81 = 4617
-while countX <= pixelsX+.001
+% We get an image that is %PixelDensity^2*(pixelsX*pixelsY)
+while countX <= pixelsX+.0001
     countY=1;
-    while countY <= pixelsY+.001
+    while countY <= pixelsY+.0001
         points(count,:) = [countX countY];
         countY = countY + pixelsBetweenY;
         count = count+1;
@@ -226,22 +232,56 @@ while framenum <= dicomFrames
       out = insertMarker(frame, points(validity, :), '+', 'Color', 'white');
       newDicom(:,:,framenum+1) = out(:,:,1);
       
-      %Compute the distance between the 2 points
-      %pointDist(framenum) = sqrt ((pointLog(1,1,framenum) - pointLog(2,1,framenum))^2+(pointLog(1,2,framenum) - pointLog(2,2,framenum))^2);
-      
       framenum = framenum + 1;
       
 end
-%Display figure showing distance between the points
-% time = 1:1:dicomFrames;
-% 
-% % plot(time, pointDist)
-% % xlabel('Time'); ylabel('Distance (pixels)')
-% % title('Distance between 2 points')
-% % 
 
 %Show tracked points in the image
 implay(newDicom(:,:,:,1))
+
+%% Strain
+% It's tough to unpack the way the points are currently used
+% I think there could probably be some revision in the future to addres
+% this
+
+% Simple difference
+for indFrames = 1:dicomFrames-1
+    pointLogDiff(:,:,indFrames) = pointLog(:,:,indFrames+1) ...
+        - pointLog(:,:,indFrames);
+end
+% Test
+%plot(permute(pointLogDiff(2003,2,:),[1 3 2]))
+
+
+% % Get the points
+% counter = 1;
+% for indFrame = 1:99
+%     for ind = 1:57:4617
+%         xPoints(:,counter,indFrame) = pointLog(ind:(ind+56),1,indFrame);
+%         yPoints(:,counter,indFrame) = pointLog(ind:(ind+56),2,indFrame);
+%         counter = counter+1;
+%     end
+%     counter = 1;
+% end
+pixelsXtracked = round(pixelsX*pixelDensity/100)+1;
+pixelsYtracked = round(pixelsY*pixelDensity/100)+1;
+trackedPixels = pixelsXtracked*pixelsYtracked;
+% Separate x and y differences for each point on the image
+counter = 1;
+for indFrame = 1:dicomFrames-1
+    for ind = 1:pixelsYtracked:trackedPixels
+        xDiff(:,counter,indFrame) = pointLogDiff(ind:(ind+pixelsYtracked-1),1,indFrame);
+        yDiff(:,counter,indFrame) = pointLogDiff(ind:(ind+pixelsYtracked-1),2,indFrame);
+        counter = counter+1;
+    end
+    counter = 1;
+end
+totalDiff = sqrt(xDiff.^2 + yDiff.^2);
+
+% Strain video
+% implay(xDiff)
+% implay(yDiff)
+implay(totalDiff)
 
 %% Edge Detection
 
@@ -308,44 +348,3 @@ implay(dicomFile(:,:,:,1))
 
 
 
-%% Strain
-% It's tough to unpack the way the points are currently used
-% I think there could probably be some revision in the future to addres
-% this
-
-% Simple difference
-for indFrames = 1:99-1
-    pointLogDiff(:,:,indFrames) = pointLog(:,:,indFrames+1) ...
-        - pointLog(:,:,indFrames);
-end
-% Test
-plot(permute(pointLogDiff(2003,2,:),[1 3 2]))
-
-
-% % Get the points
-% counter = 1;
-% for indFrame = 1:99
-%     for ind = 1:57:4617
-%         xPoints(:,counter,indFrame) = pointLog(ind:(ind+56),1,indFrame);
-%         yPoints(:,counter,indFrame) = pointLog(ind:(ind+56),2,indFrame);
-%         counter = counter+1;
-%     end
-%     counter = 1;
-% end
-
-% Get the difference
-counter = 1;
-for indFrame = 1:99-1
-    for ind = 1:57:4617
-        xDiff(:,counter,indFrame) = pointLogDiff(ind:(ind+56),1,indFrame);
-        yDiff(:,counter,indFrame) = pointLogDiff(ind:(ind+56),2,indFrame);
-        counter = counter+1;
-    end
-    counter = 1;
-end
-totalDiff = sqrt(xDiff.^2 + yDiff.^2);
-
-% Strain video
-% implay(xDiff)
-% implay(yDiff)
-implay(totalDiff)
