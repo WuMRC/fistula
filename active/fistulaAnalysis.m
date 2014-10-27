@@ -134,18 +134,10 @@ implay(imageROI_BW)
     title('A heartbeat measure by image contrast')
 
 
-
-
-%% Track edge
-% Barry & Luc's code
-
-
 %% Block-match
 
 %% Point track entire region of interest for strain
-% Luc & Barry
-clear all
-
+% Luc & Barry%C
 %Instruct user to open dicom image
 [fileName, filePath] = uigetfile('*.DCM;*.dcm;*.mat', ...
                         'Choose DICOM images to import', pwd, ...
@@ -247,7 +239,7 @@ implay(newDicom(:,:,:,1))
 % Simple difference
 for indFrames = 1:dicomFrames-1
     pointLogDiff(:,:,indFrames) = pointLog(:,:,indFrames+1) ...
-        - pointLog(:,:,indFrames);
+        - pointLog(:,:,3);
 end
 % Test
 %plot(permute(pointLogDiff(2003,2,:),[1 3 2]))

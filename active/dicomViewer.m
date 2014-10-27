@@ -120,7 +120,7 @@ classdef dicomViewer < handle
             %Check the inputs and set things appropriately
             switch nargin
                 case 0  %tool = dicomViewer()
-                    [fileName, filePath] = uigetfile('*.DCM;*.dcm', ...
+                    [fileName, filePath] = uigetfile('*.DCM;*.dcm;*.mat', ...
                         'Choose DICOM images to import', pwd, ...
                         'MultiSelect', 'off');
                     if filePath(1) == 0
@@ -132,7 +132,13 @@ classdef dicomViewer < handle
                         pixelValueRange = [-50, 50];
                     else
                         disp(['User selected: ', fullfile(fileName)]);
-                        I = permute(dicomread(fileName),[1, 2, 4, 3]);
+                        [pathstr, name, ext] = fileparts(fileName);
+                        if strcmp(ext,'.DCM') || strcmp(ext,'.dcm')
+                            I = permute(dicomread(fileName),[1, 2, 4, 3]);
+                        else
+                            load( fileName);
+                            I = permute(image_change,[1 2 4 3]);
+                        end
                         position=[0, 0, 1, 1];
                         heightHistogram=  figure;
                         set(heightHistogram,'Toolbar','none','Menubar','none')
@@ -580,33 +586,64 @@ classdef dicomViewer < handle
             fun=@(hObject,evnt) CropImageCallback(hObject,evnt,tool);
             set(tool.handles.Tools.Crop ,'Callback',fun)
             
-            % NEW STUFF
-            % Create Tracking button
-            tool.handles.Tools.Track = ...
+            % ********************************NEW STUFF**************************
+            % Create 2 pixel tracking button
+            tool.handles.Tools.Track2 = ...
                 uicontrol(tool.handles.Panels.ROItools,...
                 'Style','pushbutton',...
-                'String','* *',...
-                'Position',[buff, buff+11*widthSidePanel, widthSidePanel, widthSidePanel],...
+                'String','2',...
+                'Position',[buff, buff+15*widthSidePanel, widthSidePanel, widthSidePanel],...
                 'TooltipString','Track 2 Points in the Image ');
-            fun=@(hObject,evnt) pixelTrackCallback(hObject,evnt,tool);
-            set(tool.handles.Tools.Track ,'Callback',fun)
+            fun=@(hObject,evnt) pixelTrack2Callback(hObject,evnt,tool);
+            set(tool.handles.Tools.Track2 ,'Callback',fun)
+            
+            %Create entire frame tracking button
+            tool.handles.Tools.TrackAll = ...
+                uicontrol(tool.handles.Panels.ROItools,...
+                'Style','pushbutton',...
+                'String','all',...
+                'Position',[buff, buff+16*widthSidePanel, widthSidePanel, widthSidePanel],...
+                'TooltipString','Point Track Entire Region ');
+            fun=@(hObject,evnt) pixelTrackAllCallback(hObject,evnt,tool);
+            set(tool.handles.Tools.TrackAll ,'Callback',fun)
+            
+            %Create Strain button
+            tool.handles.Tools.Strain = ...
+                uicontrol(tool.handles.Panels.ROItools,...
+                'Style','pushbutton',...
+                'String','strain',...
+                'Position',[buff, buff+14*widthSidePanel, widthSidePanel, widthSidePanel],...
+                'TooltipString','Find Strain for Entire Region');
+            fun=@(hObject,evnt) pixelStrainCallback(hObject,evnt,tool);
+            set(tool.handles.Tools.Strain ,'Callback',fun)
+            
+            %Create gray threshold edge detect button
+            tool.handles.Tools.Edge = ...
+                uicontrol(tool.handles.Panels.ROItools,...
+                'Style','pushbutton',...
+                'String','edge',...
+                'Position',[buff, buff+13*widthSidePanel, widthSidePanel, widthSidePanel],...
+                'TooltipString','Find Strain for Entire Region');
+            fun=@(hObject,evnt) pixelEdgeCallback(hObject,evnt,tool);
+            set(tool.handles.Tools.Edge ,'Callback',fun)
             
             %Create Motion Vector button
             tool.handles.Tools.Motion = ...
                 uicontrol(tool.handles.Panels.ROItools,...
                 'Style','pushbutton',...
-                'String','-->',...
+                'String','mot',...
                 'Position',[buff, buff+12*widthSidePanel, widthSidePanel, widthSidePanel],...
                 'TooltipString','Create Motion Vectors for pixels in ROI ');
             fun=@(hObject,evnt) pixelMotionCallback(hObject,evnt,tool);
             set(tool.handles.Tools.Motion ,'Callback',fun)
             
+                    
             %Create Calibration Button
             tool.handles.Tools.Calibrate = ...
                 uicontrol(tool.handles.Panels.ROItools,...
                 'Style','pushbutton',...
                 'String','cal',...
-                'Position',[buff, buff+13*widthSidePanel, widthSidePanel, widthSidePanel],...
+                'Position',[buff, buff+11*widthSidePanel, widthSidePanel, widthSidePanel],...
                 'TooltipString','Calibrate image pixels to mm ');
             fun = @(hObject,evnt) measureImageCallback(hObject,evnt,tool,'calibrate');
             set(tool.handles.Tools.Calibrate,'Callback',fun)
@@ -1051,8 +1088,8 @@ classdef dicomViewer < handle
             set(tool.handles.Axes,'Ylim',get(tool.handles.I,'YData'))
         end
         
-        % NEW
-        function pixelTrackCallback(hObject,evnt,tool)
+        % ******************NEW***********************************************************
+        function pixelTrack2Callback(hObject,evnt,tool)
               
                     dicomSize = size(tool.I);
                     dicomFrames = dicomSize(3);
@@ -1098,8 +1135,8 @@ classdef dicomViewer < handle
 
                           framenum = framenum + 1;
                     end
-                    %dicomViewer(newI);
-                    tool.I = newI;
+                    dicomViewer(newI);
+                    %tool.I = newI;
                     
                     time = 1:1:dicomFrames;
                     figure;
@@ -1109,6 +1146,122 @@ classdef dicomViewer < handle
                     
         end
      
+        function pixelTrackAllCallback(hObject,evnt,tool)
+              
+                    dicomSize = size(tool.I);
+                    dicomFrames = dicomSize(3);
+                    
+                    newI = tool.I; 
+                    
+                    msgbox('Select two points to track, then hit "Enter"');
+                    
+                    % Get region of interest
+                    framenum = 1;
+                    objectFrame = tool.I(:,:,framenum);
+                    
+                    %Create grid of points on the image
+                    pixelsX = dicomSize(2); pixelsY = dicomSize(1);
+                    pixelDensity = 10; %percentage of pixels you want to track (between 0-100)
+                    if pixelDensity >100
+                        pixelDensity = 100;
+                    elseif pixelDensity <=0;
+                        pixelDensity = 1;
+                    end
+                    % May want to choose a decimation factor?
+                    pixelsBetweenX = (pixelsX-1)/round((pixelsX-1)*pixelDensity/100);
+                    pixelsBetweenY = (pixelsY-1)/round((pixelsY-1)*pixelDensity/100);
+                    count = 1;
+                    countX = 1;
+                    % We get an image that is %PixelDensity^2*(pixelsX*pixelsY)
+                    while countX <= pixelsX+.0001
+                        countY=1;
+                        while countY <= pixelsY+.0001
+                            points(count,:) = [countX countY];
+                            countY = countY + pixelsBetweenY;
+                            count = count+1;
+                        end
+                        countX = countX + pixelsBetweenX;
+                    end
+                    nPoints = count - 1;
+                    pointLog = zeros(nPoints, 2, dicomFrames);
+                    framenum = 1;
+                    objectFrame = newI(:,:,1);
+                    pointImage = insertMarker(objectFrame, points, '+', 'Color', 'white');
+                    newI(:,:,1) = pointImage(:,:,1);
+                    
+                    % Create object tracker
+                    tracker = vision.PointTracker('MaxBidirectionalError', 3);
+
+                    % Initialize object tracker
+                    initialize(tracker, points(:,:,1), objectFrame);
+
+                    % Show the points getting tracked
+                    while framenum <= dicomFrames
+                         %Track the points     
+                          frame =tool.I(:,:,framenum);
+                          [points, validity] = step(tracker, frame);
+                          pointLog(:,:,framenum) = points;
+                          out = insertMarker(frame, points(validity, :), '+', 'Color', 'white');
+                          newI(:,:,framenum) = out(:,:,1);
+
+                          framenum = framenum + 1;
+                    end
+                    dicomViewer(newI);
+                    %tool.I = newI;
+                                        
+        end
+        
+        function pixelStrainCallback(hObject,evnt,tool)
+              
+                    dicomSize = size(tool.I);
+                    dicomFrames = dicomSize(3);
+                     
+                    % Simple difference
+                    for indFrames = 1:dicomFrames-1
+                        pointLogDiff(:,:,indFrames) = pointLog(:,:,indFrames+1) ...
+                            - pointLog(:,:,3);
+                    end
+                    %I don't know how accurate these 2 calculations
+                    %are...I think they need to be reevaluated
+                    pixelsXtracked = round(pixelsX*pixelDensity/100)+1;
+                    pixelsYtracked = round(pixelsY*pixelDensity/100)+1;
+                    trackedPixels = pixelsXtracked*pixelsYtracked;
+                    % Separate x and y differences for each point on the image
+                    counter = 1;
+                    for indFrame = 1:dicomFrames-1
+                        for ind = 1:pixelsYtracked:trackedPixels
+                            xDiff(:,counter,indFrame) = pointLogDiff(ind:(ind+pixelsYtracked-1),1,indFrame);
+                            yDiff(:,counter,indFrame) = pointLogDiff(ind:(ind+pixelsYtracked-1),2,indFrame);
+                            counter = counter+1;
+                        end
+                        counter = 1;
+                    end
+                    totalDiff = sqrt(xDiff.^2 + yDiff.^2);
+                    dicomViewer(totalDiff);
+        end
+        
+        function pixelEdgeCallback(hObject,evnt,tool)
+            % GRAYTHRESH EDGE DETECT
+            indFrame = 1;
+            imageROI = tool.I;
+            imgSize = size(tool.I);
+            nFrames = imgSize(3);
+            
+            while indFrame <= nFrames
+                imageROI_adjusted(:,:,indFrame) = imadjust(imageROI(:,:,indFrame));
+                imageROI_level(indFrame) = graythresh(imageROI_adjusted(:,:,indFrame));
+                imageROI_BW(:,:,indFrame) = im2bw(imageROI_adjusted(:,:,indFrame),...
+                    imageROI_level(indFrame)*.3);
+                indFrame = indFrame + 1;
+            end
+           dicomViewer(imageROI_BW)
+            % An interesting result
+            time = (1:99)./16;
+            plot(time,imageROI_level)
+            xlabel('Time [s]')
+            ylabel('Graythreshold')
+            title('A heartbeat measure by image contrast')
+        end
         
         function pixelMotionCallback(hObject,evnt,tool)
             if ~isempty(tool.currentROI)                 
