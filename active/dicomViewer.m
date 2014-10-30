@@ -111,6 +111,9 @@ classdef dicomViewer < handle
         handlesROI  %list of ROI handles
         currentROI  %Currently selected ROI
         centers     %list of bin centers for histogram
+        calibration %Converts pixels to mm
+        pointLog  %Log of all the points being tracked
+        pixelDensity %Amount of pixels being tracked
     end
     
     methods
@@ -124,52 +127,55 @@ classdef dicomViewer < handle
                         'Choose DICOM images to import', pwd, ...
                         'MultiSelect', 'off');
                     if filePath(1) == 0
-                        disp('No files chosen, random image generated')
-                        I = random('unif',-50, 50, [100, 100, 3]);
-                        position = [0, 0, 1, 1];
-                        heightHistogram = figure;
-                        set(heightHistogram,'Toolbar','none','Menubar','none')
-                        pixelValueRange = [-50, 50];
+                        disp('No files chosen, exiting function')
+                        return;
                     else
                         disp(['User selected: ', fullfile(fileName)]);
-                        [pathstr, name, ext] = fileparts(fileName);
+                        [~, ~, ext] = fileparts(fileName);
                         if strcmp(ext,'.DCM') || strcmp(ext,'.dcm')
-                            I = permute(dicomread(fileName),[1, 2, 4, 3]);
+                            tool.I = permute(dicomread(fileName),[1, 2, 4, 3]);
                         else
                             load( fileName);
-                            I = permute(image_change,[1 2 4 3]);
+                            tool.I = permute(image_change,[1 2 4 3]);
                         end
                         position=[0, 0, 1, 1];
                         heightHistogram=  figure;
                         set(heightHistogram,'Toolbar','none','Menubar','none')
-                        pixelValueRange = [min(I(:)), max(I(:))];
+%                         numFrames = tool.dicomsize(3);
+%                         %Adjust image
+%                         indFrame = 1;
+%                         while indFrame <= numFrames
+%                            tool.I(:,:,indFrame) = imadjust(tool.I(:,:,indFrame));
+%                             indFrame = indFrame + 1;
+%                         end
+                        pixelValueRange = [min(tool.I(:)), max(tool.I(:))];
                     end
                 case 1  %tool = dicomViewer(I)
-                    I = varargin{1}; position=[0 0 1 1];
+                    tool.I = varargin{1}; position=[0 0 1 1];
                     heightHistogram=figure;
                     set(heightHistogram,'Toolbar','none','Menubar','none')
-                    pixelValueRange = [min(I(:)), max(I(:))];
+                    pixelValueRange = [min(tool.I(:)), max(tool.I(:))];
                 case 2  %tool = dicomViewer(I,position)
-                    I=varargin{1}; position=varargin{2};
+                    tool.I=varargin{1}; position=varargin{2};
                     heightHistogram=figure;
                     set(heightHistogram,'Toolbar','none','Menubar','none')
-                    pixelValueRange=[min(I(:)), max(I(:))];
+                    pixelValueRange=[min(tool.I(:)), max(tool.I(:))];
                 case 3  %tool = dicomViewer(I,position,h)
-                    I=varargin{1};
+                    tool.I=varargin{1};
                     position=varargin{2};
                     heightHistogram=varargin{3};
-                    pixelValueRange=[min(I(:)), max(I(:))];
+                    pixelValueRange=[min(tool.I(:)), max(tool.I(:))];
                 case 4  %tool = dicomViewer(I,position,h,range)
-                    I=varargin{1};
+                    tool.I=varargin{1};
                     position=varargin{2};
                     heightHistogram=varargin{3};
                     pixelValueRange=varargin{4};
             end
             
-            if isempty(I)
-                I=random('unif',-50,50,[100 100 3]);
+            if isempty(tool.I)
+                tool.I=random('unif',-50,50,[100 100 3]);
             end
-            oldI = I; %Save backup of original image data so that it can be recalled later.
+            %oldI = tool.I; %Save backup of original image data so that it can be recalled later.
             if isempty(position)
                 position=[0 0 1 1];
             end
@@ -179,7 +185,7 @@ classdef dicomViewer < handle
             end
             
             if isempty(pixelValueRange)
-                pixelValueRange=[min(I(:)) max(I(:))];
+                pixelValueRange=[min(tool.I(:)), max(tool.I(:))];
             end
             
             %Make the aspect ratio of the figure match that of the image
@@ -187,7 +193,7 @@ classdef dicomViewer < handle
                 set(heightHistogram,'Units','Pixels');
                 pos=get(heightHistogram,'Position');
                 Af=pos(3)/pos(4);   %Aspect Ratio of the figure
-                AI=size(I,2)/size(I,1); %Aspect Ratio of the image
+                AI=size(tool.I,2)/size(tool.I,1); %Aspect Ratio of the image
                 if Af>AI    %Figure is too wide, make it taller to match
                     pos(4)=pos(3)/AI;
                 elseif Af<AI    %Figure is too long, make it wider to match
@@ -198,13 +204,13 @@ classdef dicomViewer < handle
             end
             
             
-            I=double(I);
+            %tool.I=double(tool.I);
             
             %--------------------------------------------------------------
-            tool.I = I
             tool.handles.fig = heightHistogram;
-            handlesROI = [];
-            currentROI = [];
+            tool.handlesROI = [];
+            tool.currentROI = [];
+            tool.calibration = 85/30;
             
             %%
             % Create the panels and slider
@@ -264,7 +270,7 @@ classdef dicomViewer < handle
             tool.handles.Axes = ...
                 axes('Position', [0, 0, 1, 1], ...
                 'Parent',tool.handles.Panels.Image,'Color','none');
-            tool.handles.I = imshow(I(:,:,1),pixelValueRange);
+            tool.handles.I = imshow(tool.I(:,:,1),pixelValueRange);
             set(tool.handles.Axes,'Position',[0, 0, 1, 1],...
                 'Color','none','XColor','r','YColor','r',...
                 'GridLineStyle','--','LineWidth',1.5,...
@@ -288,7 +294,7 @@ classdef dicomViewer < handle
             fun = @(src,evnt)getImageInfo(src,evnt,tool);
             set(tool.handles.fig,'WindowButtonMotionFcn',fun);
             tool.handles.SliceText=uicontrol(tool.handles.Panels.Tools,...
-                'Style','text','String',['1/' num2str(size(I,3))], ...
+                'Style','text','String',['1/' num2str(size(tool.I,3))], ...
                 'Units','Normalized','Position',[0.5, 0.1, 0.48, 0.8], ...
                 'BackgroundColor','k','ForegroundColor','w', ...
                 'FontSize',12,'HorizontalAlignment','Right');
@@ -311,10 +317,10 @@ classdef dicomViewer < handle
                 'Parent',tool.handles.Panels.Hist);
             im = tool.I(:,:,1);
             
-            centers = linspace(min(I(:)),max(I(:)),256);
-            nElements = hist(im(:),centers);
+            tool.centers = linspace(min(double(tool.I(:))),max(double(tool.I(:))),256);
+            nElements = hist(im(:),tool.centers);
             nElements = nElements./max(nElements);
-            tool.handles.HistLine=plot(centers,nElements,'-w','LineWidth',1);
+            tool.handles.HistLine=plot(tool.centers,nElements,'-w','LineWidth',1);
             set(tool.handles.HistAxes,'Color','none',...
                 'XColor','w','YColor','w','FontSize',9,'YTick',[])
             axis on
@@ -336,14 +342,14 @@ classdef dicomViewer < handle
             set(tool.handles.HistImageAxes,'Units','Normalized');
             
             tool.handles.HistImage = ...
-                imshow(repmat(centers,[round(pos(4)) 1]),pixelValueRange);
+                imshow(repmat(tool.centers,[round(pos(4)) 1]),pixelValueRange);
             set(tool.handles.HistImageAxes,'XColor','w','YColor','w',...
                 'XTick',[],'YTick',[])
             axis on;
             axis normal;
             box on;
             
-            tool.centers = centers;
+            tool.centers = tool.centers;
             fun = @(hObject,evnt)histogramButtonDownFunction(hObject,evnt,tool,1);
             set(tool.handles.Histrange(1),'ButtonDownFcn',fun);
             fun = @(hObject,evnt)histogramButtonDownFunction(hObject,evnt,tool,2);
@@ -419,18 +425,18 @@ classdef dicomViewer < handle
                 'BackgroundColor','k','ForegroundColor','w');
             nGrid = 7;
             nMinor = 4;
-            x = linspace(1,size(I,2),nGrid);
-            y = linspace(1,size(I,1),nGrid);
+            x = linspace(1,size(tool.I,2),nGrid);
+            y = linspace(1,size(tool.I,1),nGrid);
             hold on;
             tool.handles.grid=[];
             gColor=[255, 38, 38]./256;
             mColor=[255, 102, 102]./256;
             for i = 1:nGrid
                 tool.handles.grid(end+1) = ...
-                    plot([0.5 size(I,2)-0.5],[y(i) y(i)],'-',...
+                    plot([0.5 size(tool.I,2)-0.5],[y(i) y(i)],'-',...
                     'LineWidth',1.2,'HitTest','off','Color',gColor);
                 tool.handles.grid(end+1) = ...
-                    plot([x(i) x(i)],[0.5 size(I,1)-0.5],'-',...
+                    plot([x(i) x(i)],[0.5 size(tool.I,1)-0.5],'-',...
                     'LineWidth',1.2,'HitTest','off','Color',gColor);
                 
                 if i < nGrid
@@ -441,16 +447,16 @@ classdef dicomViewer < handle
                     
                     for j = 1:nMinor
                         tool.handles.grid(end+1) = ...
-                            plot([.5 size(I,2)-.5],[ym(j) ym(j)],'-r',...
+                            plot([.5 size(tool.I,2)-.5],[ym(j) ym(j)],'-r',...
                             'LineWidth',.9,'HitTest','off','Color',mColor);
                         tool.handles.grid(end+1) = ...
-                            plot([xm(j) xm(j)],[.5 size(I,1)-.5],'-r',...
+                            plot([xm(j) xm(j)],[.5 size(tool.I,1)-.5],'-r',...
                             'LineWidth',.9,'HitTest','off','Color',mColor);
                     end
                 end
             end
             tool.handles.grid(end+1) = ...
-                scatter(0.5+size(I,2)/2,0.5+size(I,1)/2,'r','filled');
+                scatter(0.5+size(tool.I,2)/2,0.5+size(tool.I,1)/2,'r','filled');
             set(tool.handles.grid,'Visible','off')
             fun = @(hObject,evnt) toggleGrid(hObject,evnt,tool);
             set(tool.handles.Tools.Grid,'Callback',fun)
@@ -611,7 +617,7 @@ classdef dicomViewer < handle
             tool.handles.Tools.Strain = ...
                 uicontrol(tool.handles.Panels.ROItools,...
                 'Style','pushbutton',...
-                'String','strain',...
+                'String','str',...
                 'Position',[buff, buff+14*widthSidePanel, widthSidePanel, widthSidePanel],...
                 'TooltipString','Find Strain for Entire Region');
             fun=@(hObject,evnt) pixelStrainCallback(hObject,evnt,tool);
@@ -621,9 +627,9 @@ classdef dicomViewer < handle
             tool.handles.Tools.Edge = ...
                 uicontrol(tool.handles.Panels.ROItools,...
                 'Style','pushbutton',...
-                'String','edge',...
+                'String','ed',...
                 'Position',[buff, buff+13*widthSidePanel, widthSidePanel, widthSidePanel],...
-                'TooltipString','Find Strain for Entire Region');
+                'TooltipString','Find Edge of Vessel');
             fun=@(hObject,evnt) pixelEdgeCallback(hObject,evnt,tool);
             set(tool.handles.Tools.Edge ,'Callback',fun)
             
@@ -631,7 +637,7 @@ classdef dicomViewer < handle
             tool.handles.Tools.Motion = ...
                 uicontrol(tool.handles.Panels.ROItools,...
                 'Style','pushbutton',...
-                'String','mot',...
+                'String','->',...
                 'Position',[buff, buff+12*widthSidePanel, widthSidePanel, widthSidePanel],...
                 'TooltipString','Create Motion Vectors for pixels in ROI ');
             fun=@(hObject,evnt) pixelMotionCallback(hObject,evnt,tool);
@@ -679,34 +685,34 @@ classdef dicomViewer < handle
         end
         
         function units = getUnits(tool)
-            units = get(tool.handles.Panels.Large,'Units')
+            units = get(tool.handles.Panels.Large,'Units');
         end
         
         function setImage(varargin)
             switch nargin
                 case 1
-                    tool=varargin{1}; I=random('unif',-50,50,[100 100 3]);
+                    tool=varargin{1}; tool.I=random('unif',-50,50,[100 100 3]);
                     range=[-50 50];
                 case 2
-                    tool=varargin{1}; I=varargin{2};
-                    range=[min(I(:)) max(I(:))];
+                    tool=varargin{1}; tool.I=varargin{2};
+                    range=[min(tool.I(:)) max(tool.I(:))];
                 case 3
-                    tool=varargin{1}; I=varargin{2};
+                    tool=varargin{1}; tool.I=varargin{2};
                     range=varargin{3};
             end
             
-            if isempty(I)
-                I=random('unif',-50,50,[100 100 3]);
+            if isempty(tool.I)
+                tool.I=random('unif',-50,50,[100 100 3]);
             end
             if isempty(range)
-                range=[min(I(:)) max(I(:))];
+                range=[min(tool.I(:)) max(tool.I(:))];
             end
             
-            tool.I=I;
+            
             
             % Update the histogram
             im=tool.I(:,:,1);
-            tool.centers=linspace(min(I(:)),max(I(:)),256);
+            tool.centers=linspace(min(tool.I(:)),max(tool.I(:)),256);
             nelements=hist(im(:),tool.centers);
             nelements=nelements./max(nelements);
             set(tool.handles.HistLine,'XData',tool.centers,'YData',nelements);
@@ -720,33 +726,33 @@ classdef dicomViewer < handle
             %Update the image
             set(tool.handles.I,'CData',im)
             axes(tool.handles.Axes);
-            xlim([0 size(I,2)])
-            ylim([0 size(I,1)])
+            xlim([0 size(tool.I,2)])
+            ylim([0 size(tool.I,1)])
             
             %Update the gridlines
             axes(tool.handles.Axes);
             delete(tool.handles.grid)
             nGrid=7;
             nMinor=4;
-            x=linspace(1,size(I,2),nGrid);
-            y=linspace(1,size(I,1),nGrid);
+            x=linspace(1,size(tool.I,2),nGrid);
+            y=linspace(1,size(tool.I,1),nGrid);
             hold on;
             tool.handles.grid=[];
             gColor=[255 38 38]./256;
             mColor=[255 102 102]./256;
             for i=1:nGrid
-                tool.handles.grid(end+1)=plot([.5 size(I,2)-.5],[y(i) y(i)],'-','LineWidth',1.2,'HitTest','off','Color',gColor);
-                tool.handles.grid(end+1)=plot([x(i) x(i)],[.5 size(I,1)-.5],'-','LineWidth',1.2,'HitTest','off','Color',gColor);
+                tool.handles.grid(end+1)=plot([.5 size(tool.I,2)-.5],[y(i) y(i)],'-','LineWidth',1.2,'HitTest','off','Color',gColor);
+                tool.handles.grid(end+1)=plot([x(i) x(i)],[.5 size(tool.I,1)-.5],'-','LineWidth',1.2,'HitTest','off','Color',gColor);
                 if i<nGrid
                     xm=linspace(x(i),x(i+1),nMinor+2); xm=xm(2:end-1);
                     ym=linspace(y(i),y(i+1),nMinor+2); ym=ym(2:end-1);
                     for j=1:nMinor
-                        tool.handles.grid(end+1)=plot([.5 size(I,2)-.5],[ym(j) ym(j)],'-r','LineWidth',.9,'HitTest','off','Color',mColor);
-                        tool.handles.grid(end+1)=plot([xm(j) xm(j)],[.5 size(I,1)-.5],'-r','LineWidth',.9,'HitTest','off','Color',mColor);
+                        tool.handles.grid(end+1)=plot([.5 size(tool.I,2)-.5],[ym(j) ym(j)],'-r','LineWidth',.9,'HitTest','off','Color',mColor);
+                        tool.handles.grid(end+1)=plot([xm(j) xm(j)],[.5 size(tool.I,1)-.5],'-r','LineWidth',.9,'HitTest','off','Color',mColor);
                     end
                 end
             end
-            tool.handles.grid(end+1)=scatter(.5+size(I,2)/2,.5+size(I,1)/2,'r','filled');
+            tool.handles.grid(end+1)=scatter(.5+size(tool.I,2)/2,.5+size(tool.I,1)/2,'r','filled');
             toggleGrid(tool.handles.Tools.Grid,[],tool)
             
             %Update the slider
@@ -787,10 +793,9 @@ classdef dicomViewer < handle
         end
         
         function ROI = getcurrentROI(tool)
-            currentROI=tool.currentROI;
-            if ~isempty(currentROI)
-                if isvalid(currentROI)
-                    mask = createMask(currentROI);
+            if ~isempty(tool.currentROI)
+                if isvalid(tool.currentROI)
+                    mask = createMask(tool.currentROI);
                     im=get(tool.handles.I,'CData');
                     stats= regionprops(mask,im,'Area','Perimeter','MaxIntensity','MinIntensity','MeanIntensity');
                     stats.STD=std(im(mask));
@@ -815,9 +820,7 @@ classdef dicomViewer < handle
     methods (Access = private)
         
         function addhandlesROI(tool,h)
-            handlesROI=tool.handlesROI;
-            handlesROI{end+1}=h;
-            tool.handlesROI=handlesROI;
+            tool.handlesROI{end+1}=h;
         end
         
         function scrollWheel(scr,evnt,tool)
@@ -978,10 +981,9 @@ classdef dicomViewer < handle
         end
         
         function exportROI(hObject,evnt,tool)
-            currentROI=tool.currentROI;
-            if ~isempty(currentROI)
-                if isvalid(currentROI)
-                    mask = createMask(currentROI);
+            if ~isempty(tool.currentROI)
+                if isvalid(tool.currentROI)
+                    mask = createMask(tool.currentROI);
                     im=get(tool.handles.I,'CData');
                     stats= regionprops(mask,im,'Area','Perimeter','MaxIntensity','MinIntensity','MeanIntensity');
                     stats.STD=std(im(mask));
@@ -1036,12 +1038,12 @@ classdef dicomViewer < handle
                     prompt = {'Pixels:','Distance (mm):'};
                     dlg_title = 'Input';
                     num_lines = 1;
-                    default = {distance,' '};
+                    default = {distance, '30'};
                     options.Resize='on';
                     options.WindowStyle='normal';
                     answer = inputdlg(prompt,dlg_title,num_lines,default,options);
-                    pixels = str2num(answer{1,1}); mm = str2num(answer{2,1});
-                    calfactor = mm/pixels; %May need to make it a global variable
+                    pixels = str2double(answer{1,1}); mm = str2double(answer{2,1});
+                    tool.calibration = mm/pixels;
                                         
                 case 'profile'
                     axes(tool.handles.Axes);
@@ -1053,10 +1055,9 @@ classdef dicomViewer < handle
         end
         
         function deletecurrentROI(hObject,evnt,tool)
-            currentROI=tool.currentROI;
-            if length(currentROI)>0
-                if isvalid(currentROI)
-                    delete(currentROI)
+            if ~ISEMPTY(tool.currentROI)
+                if isvalid(tool.currentROI)
+                    delete(tool.currentROI)
                     set(tool.handles.ROIinfo,'String','STD:                    Mean:                    ');
                 end
             end
@@ -1088,18 +1089,16 @@ classdef dicomViewer < handle
             set(tool.handles.Axes,'Ylim',get(tool.handles.I,'YData'))
         end
         
-        % ******************NEW***********************************************************
+        % ***********************NEW***********************************************************
         function pixelTrack2Callback(hObject,evnt,tool)
               
-                    dicomSize = size(tool.I);
-                    dicomFrames = dicomSize(3);
-                    
+                    dicomFrames = size(tool.I,3);
                     newI = tool.I; 
                     
                     % Get region of interest
                     framenum = 1;
                     objectFrame = tool.I(:,:,framenum);
-                    objectRegion = tool.currentROI;
+                    %objectRegion = tool.currentROI;
                     
                     %Select Points to Track
                     msgbox('Select two points to track, then hit "Enter"');
@@ -1109,10 +1108,10 @@ classdef dicomViewer < handle
 
                     poiX = round(poiX);     poiY = round(poiY);
                     nPoints = size(poiX,1);
-                    pointLog = zeros(nPoints, 2, dicomFrames);
+                    tool.pointLog = zeros(nPoints, 2, dicomFrames);
                     points = [poiX, poiY];
                     pointImage = insertMarker(objectFrame, points, '+', 'Color', 'white');
-
+                    newI(:,:,1) = pointImage(:,:,1);
                     pointDist = zeros(dicomFrames);
                     
                     % Create object tracker
@@ -1126,12 +1125,12 @@ classdef dicomViewer < handle
                          %Track the points     
                           frame =tool.I(:,:,framenum);
                           [points, validity] = step(tracker, frame);
-                          pointLog(:,:,framenum) = points;
+                          tool.pointLog(:,:,framenum) = points;
                           out = insertMarker(frame, points(validity, :), '+', 'Color', 'white');
                           newI(:,:,framenum) = out(:,:,1);
 
                           %Compute the distance between the 2 points
-                          pointDist(framenum) = sqrt ((pointLog(1,1,framenum) - pointLog(2,1,framenum))^2+(pointLog(1,2,framenum) - pointLog(2,2,framenum))^2);
+                          pointDist(framenum) = sqrt ((tool.pointLog(1,1,framenum) - tool.pointLog(2,1,framenum))^2+(tool.pointLog(1,2,framenum) - tool.pointLog(2,2,framenum))^2);
 
                           framenum = framenum + 1;
                     end
@@ -1148,28 +1147,27 @@ classdef dicomViewer < handle
      
         function pixelTrackAllCallback(hObject,evnt,tool)
               
-                    dicomSize = size(tool.I);
-                    dicomFrames = dicomSize(3);
-                    
+                    dicomFrames = size(tool.I,3);
                     newI = tool.I; 
                     
-                    msgbox('Select two points to track, then hit "Enter"');
+                    msgbox('Running Pixel Tracker');
+                    pause(2);
+                    close;
                     
                     % Get region of interest
                     framenum = 1;
-                    objectFrame = tool.I(:,:,framenum);
-                    
+
                     %Create grid of points on the image
-                    pixelsX = dicomSize(2); pixelsY = dicomSize(1);
-                    pixelDensity = 10; %percentage of pixels you want to track (between 0-100)
-                    if pixelDensity >100
-                        pixelDensity = 100;
-                    elseif pixelDensity <=0;
-                        pixelDensity = 1;
+                    pixelsX =size(tool.I,2); pixelsY = size(tool.I,1);
+                    tool.pixelDensity = 10; %percentage of pixels you want to track (between 0-100)
+                    if tool.pixelDensity >100
+                        tool.pixelDensity = 100;
+                    elseif tool.pixelDensity <=0;
+                        tool.pixelDensity = 1;
                     end
                     % May want to choose a decimation factor?
-                    pixelsBetweenX = (pixelsX-1)/round((pixelsX-1)*pixelDensity/100);
-                    pixelsBetweenY = (pixelsY-1)/round((pixelsY-1)*pixelDensity/100);
+                    pixelsBetweenX = (pixelsX-1)/round((pixelsX-1)*tool.pixelDensity/100);
+                    pixelsBetweenY = (pixelsY-1)/round((pixelsY-1)*tool.pixelDensity/100);
                     count = 1;
                     countX = 1;
                     % We get an image that is %PixelDensity^2*(pixelsX*pixelsY)
@@ -1183,7 +1181,7 @@ classdef dicomViewer < handle
                         countX = countX + pixelsBetweenX;
                     end
                     nPoints = count - 1;
-                    pointLog = zeros(nPoints, 2, dicomFrames);
+                    tool.pointLog = zeros(nPoints, 2, dicomFrames);
                     framenum = 1;
                     objectFrame = newI(:,:,1);
                     pointImage = insertMarker(objectFrame, points, '+', 'Color', 'white');
@@ -1200,31 +1198,44 @@ classdef dicomViewer < handle
                          %Track the points     
                           frame =tool.I(:,:,framenum);
                           [points, validity] = step(tracker, frame);
-                          pointLog(:,:,framenum) = points;
+                          tool.pointLog(:,:,framenum) = points;
                           out = insertMarker(frame, points(validity, :), '+', 'Color', 'white');
                           newI(:,:,framenum) = out(:,:,1);
 
                           framenum = framenum + 1;
                     end
                     dicomViewer(newI);
+                    disp
                     %tool.I = newI;
                                         
         end
         
         function pixelStrainCallback(hObject,evnt,tool)
-              
-                    dicomSize = size(tool.I);
-                    dicomFrames = dicomSize(3);
-                     
-                    % Simple difference
-                    for indFrames = 1:dicomFrames-1
-                        pointLogDiff(:,:,indFrames) = pointLog(:,:,indFrames+1) ...
-                            - pointLog(:,:,3);
+               if (isempty(tool.pointLog))
+                   msgbox('Please run pixel tracking first to get strain')
+               else
+                   dicomFrames = size(tool.I,3);
+                   choice = questdlg('Which type of strain would you like to display?', ...
+                        'Select strain type', 'Total', 'Image to Image','Image to Image');
+                   switch choice
+                       case 'Total'
+                            % Total difference
+                            for indFrames = 1:dicomFrames-1
+                                pointLogDiff(:,:,indFrames) = tool.pointLog(:,:,indFrames+1) ...
+                                    - tool.pointLog(:,:,1);
+                            end
+                       case 'Image to Image'
+                            % Simple difference
+                            for indFrames = 1:dicomFrames-1
+                                pointLogDiff(:,:,indFrames) = tool.pointLog(:,:,indFrames+1) ...
+                                    - tool.pointLog(:,:,indFrames);
+                            end
                     end
                     %I don't know how accurate these 2 calculations
                     %are...I think they need to be reevaluated
-                    pixelsXtracked = round(pixelsX*pixelDensity/100)+1;
-                    pixelsYtracked = round(pixelsY*pixelDensity/100)+1;
+                    pixelsX = size(tool.I,2); pixelsY = size(tool.I,1);
+                    pixelsXtracked = round(pixelsX*tool.pixelDensity/100)+1;
+                    pixelsYtracked = round(pixelsY*tool.pixelDensity/100)+1;
                     trackedPixels = pixelsXtracked*pixelsYtracked;
                     % Separate x and y differences for each point on the image
                     counter = 1;
@@ -1238,6 +1249,7 @@ classdef dicomViewer < handle
                     end
                     totalDiff = sqrt(xDiff.^2 + yDiff.^2);
                     dicomViewer(totalDiff);
+               end
         end
         
         function pixelEdgeCallback(hObject,evnt,tool)
@@ -1254,9 +1266,11 @@ classdef dicomViewer < handle
                     imageROI_level(indFrame)*.3);
                 indFrame = indFrame + 1;
             end
-           dicomViewer(imageROI_BW)
+            imageROI_BW = uint8(imageROI_BW);
+            dicomViewer(imageROI_BW)
             % An interesting result
-            time = (1:99)./16;
+            time = (1:nFrames)./16;
+            figure;
             plot(time,imageROI_level)
             xlabel('Time [s]')
             ylabel('Graythreshold')
