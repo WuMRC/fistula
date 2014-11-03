@@ -106,7 +106,7 @@ classdef dicomViewer < handle
     %   Requires the image processing toolbox
     
     properties (SetAccess = private, GetAccess = private)
-        I           %Image data (MxNxK) matrix of image data
+        I           %Image data (MxNxK) matrix of image data (double)
         handles     %Structured variable with all the handles
         handlesROI  %list of ROI handles
         currentROI  %Currently selected ROI
@@ -203,14 +203,12 @@ classdef dicomViewer < handle
                 set(heightHistogram,'Units','normalized');
             end
             
-            
-            %tool.I=double(tool.I);
-            
             %--------------------------------------------------------------
             tool.handles.fig = heightHistogram;
             tool.handlesROI = [];
             tool.currentROI = [];
             tool.calibration = 85/30;
+            tool.I = double(tool.I);
             
             %%
             % Create the panels and slider
@@ -1093,11 +1091,11 @@ classdef dicomViewer < handle
         function pixelTrack2Callback(hObject,evnt,tool)
               
                     dicomFrames = size(tool.I,3);
-                    newI = tool.I; 
-                    
+                    newI = uint8(tool.I); 
+                    J = uint8(tool.I);
                     % Get region of interest
                     framenum = 1;
-                    objectFrame = tool.I(:,:,framenum);
+                    objectFrame = J(:,:,framenum);
                     %objectRegion = tool.currentROI;
                     
                     %Select Points to Track
@@ -1123,7 +1121,7 @@ classdef dicomViewer < handle
                     % Show the points getting tracked
                     while framenum <= dicomFrames
                          %Track the points     
-                          frame =tool.I(:,:,framenum);
+                          frame =tool.J(:,:,framenum);
                           [points, validity] = step(tracker, frame);
                           tool.pointLog(:,:,framenum) = points;
                           out = insertMarker(frame, points(validity, :), '+', 'Color', 'white');
@@ -1147,16 +1145,12 @@ classdef dicomViewer < handle
      
         function pixelTrackAllCallback(hObject,evnt,tool)
               
-                    dicomFrames = size(tool.I,3);
-                    newI = tool.I; 
-                    
-                    msgbox('Running Pixel Tracker');
-                    pause(2);
-                    close;
+                    dicomFrames = size(tool.J,3);
+                    newI = tool.J; 
+                    msgbox('Running Pixel Tracker'); pause(1); close;
                     
                     % Get region of interest
                     framenum = 1;
-
                     %Create grid of points on the image
                     pixelsX =size(tool.I,2); pixelsY = size(tool.I,1);
                     tool.pixelDensity = 10; %percentage of pixels you want to track (between 0-100)
@@ -1196,7 +1190,7 @@ classdef dicomViewer < handle
                     % Show the points getting tracked
                     while framenum <= dicomFrames
                          %Track the points     
-                          frame =tool.I(:,:,framenum);
+                          frame =tool.J(:,:,framenum);
                           [points, validity] = step(tracker, frame);
                           tool.pointLog(:,:,framenum) = points;
                           out = insertMarker(frame, points(validity, :), '+', 'Color', 'white');
@@ -1214,7 +1208,7 @@ classdef dicomViewer < handle
                if (isempty(tool.pointLog))
                    msgbox('Please run pixel tracking first to get strain')
                else
-                   dicomFrames = size(tool.I,3);
+                   dicomFrames = size(tool.J,3);
                    choice = questdlg('Which type of strain would you like to display?', ...
                         'Select strain type', 'Total', 'Image to Image','Image to Image');
                    switch choice
@@ -1233,7 +1227,7 @@ classdef dicomViewer < handle
                     end
                     %I don't know how accurate these 2 calculations
                     %are...I think they need to be reevaluated
-                    pixelsX = size(tool.I,2); pixelsY = size(tool.I,1);
+                    pixelsX = size(tool.I8,2); pixelsY = size(tool.I8,1);
                     pixelsXtracked = round(pixelsX*tool.pixelDensity/100)+1;
                     pixelsYtracked = round(pixelsY*tool.pixelDensity/100)+1;
                     trackedPixels = pixelsXtracked*pixelsYtracked;
@@ -1253,28 +1247,39 @@ classdef dicomViewer < handle
         end
         
         function pixelEdgeCallback(hObject,evnt,tool)
-            % GRAYTHRESH EDGE DETECT
-            indFrame = 1;
-            imageROI = tool.I;
-            imgSize = size(tool.I);
-            nFrames = imgSize(3);
-            
-            while indFrame <= nFrames
-                imageROI_adjusted(:,:,indFrame) = imadjust(imageROI(:,:,indFrame));
-                imageROI_level(indFrame) = graythresh(imageROI_adjusted(:,:,indFrame));
-                imageROI_BW(:,:,indFrame) = im2bw(imageROI_adjusted(:,:,indFrame),...
-                    imageROI_level(indFrame)*.3);
-                indFrame = indFrame + 1;
-            end
-            imageROI_BW = uint8(imageROI_BW);
-            dicomViewer(imageROI_BW)
-            % An interesting result
-            time = (1:nFrames)./16;
-            figure;
-            plot(time,imageROI_level)
-            xlabel('Time [s]')
-            ylabel('Graythreshold')
-            title('A heartbeat measure by image contrast')
+            if ~isempty(tool.currentROI)                 
+                  if isvalid(tool.currentROI)
+                       imageROI = tool.currentROI;
+                       disp(tool.currentROI);
+                      % GRAYTHRESH EDGE DETECT
+                        indFrame = 1;
+                        imageROI = uint8(tool.I);
+                        nFrames = size(tool.I,3);
+                        while indFrame <= nFrames
+                            imageROI_adjusted(:,:,indFrame) = imadjust(imageROI(:,:,indFrame));
+                            imageROI_level(indFrame) = graythresh(imageROI_adjusted(:,:,indFrame));
+                            imageROI_BW(:,:,indFrame) = im2bw(imageROI_adjusted(:,:,indFrame),...
+                                imageROI_level(indFrame)*.3);
+                            indFrame = indFrame + 1;
+                        end
+                        imageROI_BW = uint8(imageROI_BW);
+                        dicomViewer(imageROI_BW)
+                        % An interesting result
+                        time = (1:nFrames)./16;
+                        figure;
+                        plot(time,imageROI_level)
+                        xlabel('Time [s]')
+                        ylabel('Graythreshold')
+                        title('A heartbeat measure by image contrast')
+                        else
+                            msgbox('Please select a region of interest');
+                            return;
+                   end
+             else
+                  msgbox('Please select a region of interest');
+                  return;
+             end
+
         end
         
         function pixelMotionCallback(hObject,evnt,tool)
@@ -1283,12 +1288,12 @@ classdef dicomViewer < handle
                     dicomSize = size(tool.I);
                     dicomFrames = dicomSize(3);
 
-                    %newFileName = 'tracker.dcm';
-                    newI = tool.I; 
+                    newI = uint8(tool.I);
+                    J = uint8(tool.I);
 
                     % Get region of interest
                     framenum = 1;
-                    objectFrame = tool.I(:,:,framenum);
+                    objectFrame = J(:,:,framenum);
                     objectRegion = tool.currentROI;
 
                     %Assign motion vector functions
@@ -1305,7 +1310,7 @@ classdef dicomViewer < handle
 
                         framenum = framenum + 1;
                         
-                        frame = tool.I(:,:,framenum);
+                        frame = J(:,:,framenum);
                         im = step(converter, frame);
                         of = step(opticalFlow, im);
                         lines = videooptflowlines(of, 10); %(velocity value, scale factor)
