@@ -1121,7 +1121,7 @@ classdef dicomViewer < handle
                     % Show the points getting tracked
                     while framenum <= dicomFrames
                          %Track the points     
-                          frame =tool.J(:,:,framenum);
+                          frame =J(:,:,framenum);
                           [points, validity] = step(tracker, frame);
                           tool.pointLog(:,:,framenum) = points;
                           out = insertMarker(frame, points(validity, :), '+', 'Color', 'white');
