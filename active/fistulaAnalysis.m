@@ -172,7 +172,7 @@ end
 
 %Create grid of points on the image
 pixelsX = dicomSize(2); pixelsY = dicomSize(1);
-pixelDensity = 20; %percentage of pixels you want to track (between 0-100)
+pixelDensity = 5; %percentage of pixels you want to track (between 0-100)
 
 if pixelDensity >100
     pixelDensity = 100;
