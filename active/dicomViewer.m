@@ -1283,8 +1283,9 @@ classdef dicomViewer < handle
         end
         
         function pixelMotionCallback(hObject,evnt,tool)
+                    
+                    dicomFrames = size(tool.I, 3);
                     dicomSize = size(tool.I);
-                    dicomFrames = dicomSize(3);
 
                     newI = uint8(tool.I);
                     J = uint8(tool.I);
@@ -1292,7 +1293,7 @@ classdef dicomViewer < handle
                     % Get region of interest
                     framenum = 1;
                     objectFrame = J(:,:,framenum);
-                    objectRegion = tool.currentROI;
+                    objectRegion = [0 0 dicomSize(1) dicomSize(2)];
 
                     %Assign motion vector functions
                     converter = vision.ImageDataTypeConverter; 
@@ -1305,16 +1306,15 @@ classdef dicomViewer < handle
                         'Horizontal and vertical components in complex form';
 
                     while framenum < dicomFrames
-                        
+                        framenum = framenum + 1;
                         frame = J(:,:,framenum);
                         im = step(converter, frame);
                         of = step(opticalFlow, im);
-                        lines = videooptflowlines(of, 5);  %(velocity value, scale factor)
+                        lines = videooptflowlines(of, 10);  %(velocity value, scale factor)
                         if ~isempty(lines)
                           out =  step(shapeInserter, im, lines); 
                           newI(:,:,framenum) = out(:,:,1);
                         end
-                        framenum = framenum + 1;
                     end
                     dicomViewer(newI);                  
            end
