@@ -1053,12 +1053,12 @@ classdef dicomViewer < handle
         end
         
         function deletecurrentROI(hObject,evnt,tool)
-            if ~ISEMPTY(tool.currentROI)
+            %if ~ISEMPTY(tool.currentROI)
                 if isvalid(tool.currentROI)
                     delete(tool.currentROI)
                     set(tool.handles.ROIinfo,'String','STD:                    Mean:                    ');
                 end
-            end
+            %end
         end
         
         function displayHelp(hObject,evnt,tool)
@@ -1145,9 +1145,10 @@ classdef dicomViewer < handle
      
         function pixelTrackAllCallback(hObject,evnt,tool)
               
-                    dicomFrames = size(tool.J,3);
-                    newI = tool.J; 
-                    msgbox('Running Pixel Tracker'); pause(1); close;
+                    dicomFrames = size(tool.I,3);
+                    newI = uint8(tool.I); 
+                    J = uint8(tool.I);
+                    msgbox('Running Pixel Tracker'); close;
                     
                     % Get region of interest
                     framenum = 1;
@@ -1190,7 +1191,7 @@ classdef dicomViewer < handle
                     % Show the points getting tracked
                     while framenum <= dicomFrames
                          %Track the points     
-                          frame =tool.J(:,:,framenum);
+                          frame =J(:,:,framenum);
                           [points, validity] = step(tracker, frame);
                           tool.pointLog(:,:,framenum) = points;
                           out = insertMarker(frame, points(validity, :), '+', 'Color', 'white');
@@ -1199,7 +1200,6 @@ classdef dicomViewer < handle
                           framenum = framenum + 1;
                     end
                     dicomViewer(newI);
-                    disp
                     %tool.I = newI;
                                         
         end
@@ -1208,7 +1208,7 @@ classdef dicomViewer < handle
                if (isempty(tool.pointLog))
                    msgbox('Please run pixel tracking first to get strain')
                else
-                   dicomFrames = size(tool.J,3);
+                   dicomFrames = size(tool.I,3);
                    choice = questdlg('Which type of strain would you like to display?', ...
                         'Select strain type', 'Total', 'Image to Image','Image to Image');
                    switch choice
@@ -1227,7 +1227,7 @@ classdef dicomViewer < handle
                     end
                     %I don't know how accurate these 2 calculations
                     %are...I think they need to be reevaluated
-                    pixelsX = size(tool.I8,2); pixelsY = size(tool.I8,1);
+                    pixelsX = size(tool.I,2); pixelsY = size(tool.I,1);
                     pixelsXtracked = round(pixelsX*tool.pixelDensity/100)+1;
                     pixelsYtracked = round(pixelsY*tool.pixelDensity/100)+1;
                     trackedPixels = pixelsXtracked*pixelsYtracked;
@@ -1283,8 +1283,6 @@ classdef dicomViewer < handle
         end
         
         function pixelMotionCallback(hObject,evnt,tool)
-            if ~isempty(tool.currentROI)                 
-                  if isvalid(tool.currentROI)
                     dicomSize = size(tool.I);
                     dicomFrames = dicomSize(3);
 
@@ -1307,28 +1305,18 @@ classdef dicomViewer < handle
                         'Horizontal and vertical components in complex form';
 
                     while framenum < dicomFrames
-
-                        framenum = framenum + 1;
                         
                         frame = J(:,:,framenum);
                         im = step(converter, frame);
                         of = step(opticalFlow, im);
-                        lines = videooptflowlines(of, 10); %(velocity value, scale factor)
+                        lines = videooptflowlines(of, 5);  %(velocity value, scale factor)
                         if ~isempty(lines)
                           out =  step(shapeInserter, im, lines); 
                           newI(:,:,framenum) = out(:,:,1);
                         end
+                        framenum = framenum + 1;
                     end
                     dicomViewer(newI);                  
-                    
-                  else
-                    msgbox('Please select a region of interest');
-                    return;
-                  end
-              else
-                  msgbox('Please select a region of interest');
-                  return;
-             end
            end
         
     end
