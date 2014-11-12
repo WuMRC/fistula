@@ -114,6 +114,7 @@ classdef dicomViewer < handle
         calibration %Converts pixels to mm
         pointLog  %Log of all the points being tracked
         pixelDensity %Amount of pixels being tracked
+        minima
     end
     
     methods
@@ -497,7 +498,6 @@ classdef dicomViewer < handle
             set(tool.handles.Tools.Save,'Callback',fun)
             set(tool.handles.Tools.Save,'TooltipString','Save image as slice or tiff stack')
             
-            
             % Create Circle ROI button
             tool.handles.Tools.CircleROI = ...
                 uicontrol(tool.handles.Panels.ROItools,...
@@ -591,6 +591,7 @@ classdef dicomViewer < handle
             set(tool.handles.Tools.Crop ,'Callback',fun)
             
             % ********************************NEW STUFF**************************
+            pos = get(tool.handles.Panels.ROItools,'Position');
             % Create 2 pixel tracking button
             tool.handles.Tools.Track2 = ...
                 uicontrol(tool.handles.Panels.ROItools,...
@@ -648,12 +649,11 @@ classdef dicomViewer < handle
                 'Style','pushbutton',...
                 'String','cal',...
                 'Position',[buff, buff+11*widthSidePanel, widthSidePanel, widthSidePanel],...
-                'TooltipString','Calibrate image pixels to mm ');
-            fun = @(hObject,evnt) measureImageCallback(hObject,evnt,tool,'calibrate');
+                'TooltipString','Calibrate image pixels to cm ');
+            fun = @(hObject,evnt) pixelCalibrateCallback(hObject,evnt,tool);
             set(tool.handles.Tools.Calibrate,'Callback',fun)
             
             % Create Help Button
-            pos = get(tool.handles.Panels.ROItools,'Position');
             tool.handles.Tools.Help = ...
                 uicontrol(tool.handles.Panels.ROItools,...
                 'Style','pushbutton',...
@@ -1026,23 +1026,7 @@ classdef dicomViewer < handle
                     h = imdistline(tool.handles.Axes);
                     fcn = makeConstrainToRectFcn('imline',[1 size(tool.I,2)],[1 size(tool.I,1)]);
                     setPositionConstraintFcn(h,fcn);
-                    
-                case 'calibrate'
-                    h = imdistline(tool.handles.Axes);
-                    fcn = makeConstrainToRectFcn('imline',[1 size(tool.I,2)],[1 size(tool.I,1)]);
-                    setPositionConstraintFcn(h,fcn);
-                    distance = num2str(getDistance(h));
-                    disp (distance);
-                    prompt = {'Pixels:','Distance (mm):'};
-                    dlg_title = 'Input';
-                    num_lines = 1;
-                    default = {distance, '30'};
-                    options.Resize='on';
-                    options.WindowStyle='normal';
-                    answer = inputdlg(prompt,dlg_title,num_lines,default,options);
-                    pixels = str2double(answer{1,1}); mm = str2double(answer{2,1});
-                    tool.calibration = mm/pixels;
-                                        
+           
                 case 'profile'
                     axes(tool.handles.Axes);
                     improfile(); grid on;
@@ -1088,6 +1072,33 @@ classdef dicomViewer < handle
         end
         
         % ***********************NEW***********************************************************
+        function pixelCalibrateCallback(hObject,evnt,tool)
+            %Select Points to Track
+            msgbox('Select two points with a know distance, then hit "Enter"');
+            close;
+            figHandle = gcf;
+            [poiX, poiY] = getpts(figHandle);
+
+            poiX = round(poiX);     poiY = round(poiY);
+            %Calculate the distance in pixels
+            pixels = sqrt ((poiX(1) - poiX(2))^2+(poiY(1) - poiY(2))^2);
+            
+            %Have user input distance in cm
+            prompt = {'Input distance between 2 points (cm):'};
+                    dlg_title = 'Input';
+                    num_lines = 1;
+                    default = {'1'};
+                    options.Resize='on';
+                    options.WindowStyle='normal';
+                    answer = inputdlg(prompt,dlg_title,num_lines,default,options);
+                    cm = str2double(answer{1,1});
+            
+           tool.calibration = cm/pixels;
+            
+            msgbox('Calibration Complete')
+                
+        end
+        
         function pixelTrack2Callback(hObject,evnt,tool)
               
                     dicomFrames = size(tool.I,3);
@@ -1096,8 +1107,7 @@ classdef dicomViewer < handle
                     % Get region of interest
                     framenum = 1;
                     objectFrame = J(:,:,framenum);
-                    %objectRegion = tool.currentROI;
-                    
+                   
                     %Select Points to Track
                     msgbox('Select two points to track, then hit "Enter"');
                     close;
@@ -1110,7 +1120,7 @@ classdef dicomViewer < handle
                     points = [poiX, poiY];
                     pointImage = insertMarker(objectFrame, points, '+', 'Color', 'white');
                     newI(:,:,1) = pointImage(:,:,1);
-                    pointDist = zeros(dicomFrames);
+                    pointDist = zeros(1,dicomFrames);
                     
                     % Create object tracker
                     tracker = vision.PointTracker('MaxBidirectionalError', 3);
@@ -1132,14 +1142,178 @@ classdef dicomViewer < handle
 
                           framenum = framenum + 1;
                     end
-                    dicomViewer(newI);
-                    %tool.I = newI;
                     
-                    time = 1:1:dicomFrames;
-                    figure;
-                    plot(time, pointDist)
-                    xlabel('Time'); ylabel('Distance (pixels)')
+                    %Convert pixels to cm and percent
+                    cm = tool.calibration;
+                    pointDistCm = pointDist./5;
+                    pointDistPercent = pointDist.*100./max(max(pointDist));
+                  
+                    sampleFreq = 16; %want to obtain this from dicom somehow
+                    time = (1:dicomFrames)/sampleFreq;
+                    
+%                     figure;
+%                     plot(time, pointDistPercent)
+%                     xlabel('Time'); ylabel('Distance (%)')
+%                     title('Distance between 2 points')
+                    
+                    dicomViewer(newI);
+                    
+                    %Initialize global variables
+                    h  = struct;
+                    tool.minima = zeros(2);
+                    % Plot the tracked pixel movement in a switchable GUI
+                    % Create and then hide the GUI as it is being constructed. 
+                    f = figure('Visible','off','Position',[360,500,475,350]); %Left bottom width height
+
+                    % Construct the components. 
+
+                    hpopup = uicontrol('Style','popupmenu',... 
+                        'String',{'Distance [cm]','Distance [%]'},... 
+                        'Position',[25,320,100,25],...
+                        'Callback',{@popup_menu_Callback});
+
+                    hdrawmin = uicontrol('Style','pushbutton',... 
+                        'String','Find Local Minima','Position',[150,320,110,25],...
+                        'Callback',{@drawmin_button_Callback});
+
+                    hsetmin = uicontrol('Style','pushbutton',... 
+                        'String','Set Minima','Position',[285,320,70,25],...
+                        'Callback',{@setmin_button_Callback});
+
+                    ha = axes('Units','pixels','Position',[25,25,425,270]); 
+
+                    % Change units to normalized so components resize automatically. 
+                    set([f,ha,hpopup,hdrawmin,hsetmin],'Units','normalized');
+
+                    % Create a plot in the axes. 
+                    plot(time, pointDistCm)
+                    xlabel('Time [s]'); ylabel('Distance [cm]')
                     title('Distance between 2 points')
+
+                    % Assign the GUI a name to appear in the window title. 
+                    set(f,'Name','Distance Between 2 Points')
+                    % Move the GUI to the center of the screen. 
+                    movegui(f,'center')
+                    % Make the GUI visible. 
+                    set(f,'Visible','on');
+
+                    % Pop-up menu callback. Read the pop-up menu and display property
+
+                        function popup_menu_Callback(source,eventdata) 
+                            % Determine the selected data set. 
+                            str = get(source, 'String'); 
+                            val = get(source,'Value'); 
+
+                            % Set current data to the selected data set.
+                            switch str{val}; 
+                                case 'Distance [cm]' % User selects cm
+                                    plot(time, pointDistCm)
+                                    xlabel('Time [s]'); ylabel('Distance [cm]')
+                                    title('Distance between 2 points')
+                                case 'Distance [%]'   % User selects percent
+                                    plot(time, pointDistPercent)
+                                    xlabel('Time [s]'); ylabel('Distance [%]')
+                                    title('Distance between 2 points')
+                            end
+                        end
+
+                        function [lmval,indd]=lmin(xx,filt)
+                            %Find the local minima in a data set, excludes the first
+                            %and last points.
+                            % Created by Serge Koptenko, Guigne International Ltd.
+                            x=xx;
+                            len_x = length(x);
+                                fltr=[1 1 1]/3;
+                              if nargin <2, filt=0; 
+                                else
+                            x1=x(1); x2=x(len_x); 
+
+                                for jj=1:filt,
+                                c=conv(fltr,x);
+                                x=c(2:len_x+1);
+                                x(1)=x1;  
+                                    x(len_x)=x2; 
+                                end
+                              end
+
+                            lmval=[];
+                            indd=[];
+                            i=2;		% start at second data point in time series
+
+                                while i < len_x-1,
+                                if x(i) < x(i-1)
+                                   if x(i) < x(i+1)	% definite min
+                            lmval =[lmval x(i)];
+                            indd = [ indd i];
+
+                                   elseif x(i)==x(i+1)&x(i)==x(i+2)	% 'long' flat spot
+                            %lmval =[lmval x(i)];	%1   comment these two lines for strict case 
+                            %indd = [ indd i];	%2 when only  definite min included
+                            i = i + 2;  		% skip 2 points
+
+                                   elseif x(i)==x(i+1)	% 'short' flat spot
+                            %lmval =[lmval x(i)];	%1   comment these two lines for strict case
+                            %indd = [ indd i];	%2 when only  definite min included
+                            i = i + 1;		% skip one point
+                                   end
+                                end
+                                i = i + 1;
+                                end
+
+                            if filt>0 & ~isempty(indd),
+                                if (indd(1)<= 3)|(indd(length(indd))+2>length(xx)), 
+                                   rng=1;	%check if index too close to the edge
+                                else rng=2;
+                                end
+
+                                   for ii=1:length(indd), 
+                                    [val(ii) iind(ii)] = min(xx(indd(ii) -rng:indd(ii) +rng));
+                                    iind(ii)=indd(ii) + iind(ii)  -rng-1;
+                                   end
+                              indd=iind; lmval=val;
+                            else
+                            end
+                        end
+
+                        function drawmin_button_Callback(source,eventdata)
+                            %Draw vertical lines indicating the location of local minima
+                            %Find local minima
+                            [lmval,indd]=lmin(pointDistCm,1);
+                            tool.minima = indd/sampleFreq;
+                            buffer = (max(pointDistCm)-min(pointDistCm))/4;
+                            count = 1;
+                            %Create lines
+                            while count <= length(lmval)
+                                x = [tool.minima(count), tool.minima(count)];
+                                y = [lmval(count)-buffer, lmval(count)+buffer];
+                                strcount = strcat('a',num2str(count));
+                                h.(strcount) = imline(gca, x, y);
+                                count = count + 1;
+                            end
+                        end
+
+                        function setmin_button_Callback(source, eventdata)
+                            %Set location of local minimum
+                            %Information is used to calculate strain from the minimal vessel
+                            %dialation.
+                            if exist('h','var')
+                                count = 1;
+                                strcount = strcat('a',num2str(count));
+                                %while isfield(h, strcount)
+                                    pos = getPostion(h.(strcount));
+                                    tool.minima(count) = pos(1,1);
+                                    count = count + 1;
+                                    strcount = strcat('a',num2str(count));
+                                %end
+                                msgbox('New minima set')
+                                disp(tool.minima)
+                            else
+                                msgbox('Please find minima first')
+                            end
+
+                        end              
+                    
+                    
                     
         end
      
