@@ -114,7 +114,7 @@ classdef dicomViewer < handle
         calibration %Converts pixels to mm
         pointLog  %Log of all the points being tracked
         pixelDensity %Amount of pixels being tracked
-        minima
+        minima %Minimum compressions of blood vessel
     end
     
     methods
@@ -210,6 +210,7 @@ classdef dicomViewer < handle
             tool.currentROI = [];
             tool.calibration = 85/30;
             tool.I = double(tool.I);
+            tool.minima = 1;
             
             %%
             % Create the panels and slider
@@ -1145,8 +1146,10 @@ classdef dicomViewer < handle
                     
                     %Convert pixels to cm and percent
                     cm = tool.calibration;
-                    pointDistCm = pointDist./5;
+                    pointDistCm = pointDist./50;
                     pointDistPercent = pointDist.*100./max(max(pointDist));
+                    pointDistTp = pointDistCm - min(pointDistCm);
+                    pointDistTpPercent = pointDistPercent-min(pointDistPercent);
                   
                     sampleFreq = 16; %want to obtain this from dicom somehow
                     time = (1:dicomFrames)/sampleFreq;
@@ -1160,7 +1163,7 @@ classdef dicomViewer < handle
                     
                     %Initialize global variables
                     h  = struct;
-                    tool.minima = zeros(2);
+                    tool.minima = tool.minima;
                     % Plot the tracked pixel movement in a switchable GUI
                     % Create and then hide the GUI as it is being constructed. 
                     f = figure('Visible','off','Position',[360,500,475,350]); %Left bottom width height
@@ -1168,7 +1171,7 @@ classdef dicomViewer < handle
                     % Construct the components. 
 
                     hpopup = uicontrol('Style','popupmenu',... 
-                        'String',{'Distance [cm]','Distance [%]'},... 
+                        'String',{'Distance [cm]','Distance [%]','Distensibility [cm]','Distensibility [%]'},... 
                         'Position',[25,320,100,25],...
                         'Callback',{@popup_menu_Callback});
 
@@ -1210,10 +1213,18 @@ classdef dicomViewer < handle
                                     plot(time, pointDistCm)
                                     xlabel('Time [s]'); ylabel('Distance [cm]')
                                     title('Distance between 2 points')
+                                case 'Distensibility [cm]' % User selects cm
+                                    plot(time, pointDistTp)
+                                    xlabel('Time [s]'); ylabel('Distance [cm]')
+                                    title('Distensibility between 2 points')    
                                 case 'Distance [%]'   % User selects percent
                                     plot(time, pointDistPercent)
                                     xlabel('Time [s]'); ylabel('Distance [%]')
                                     title('Distance between 2 points')
+                                case 'Distensibility [%]' % User selects cm
+                                    plot(time, pointDistTpPercent)
+                                    xlabel('Time [s]'); ylabel('Distance [%]')
+                                    title('Distensibility between 2 points')   
                             end
                         end
 
@@ -1279,17 +1290,18 @@ classdef dicomViewer < handle
                             %Draw vertical lines indicating the location of local minima
                             %Find local minima
                             [lmval,indd]=lmin(pointDistCm,1);
-                            tool.minima = indd/sampleFreq;
+                            tool.minima = round(indd);
                             buffer = (max(pointDistCm)-min(pointDistCm))/4;
                             count = 1;
                             %Create lines
                             while count <= length(lmval)
-                                x = [tool.minima(count), tool.minima(count)];
+                                x = [tool.minima(count)/sampleFreq, tool.minima(count)/sampleFreq];
                                 y = [lmval(count)-buffer, lmval(count)+buffer];
                                 strcount = strcat('a',num2str(count));
                                 h.(strcount) = imline(gca, x, y);
                                 count = count + 1;
                             end
+                            disp(tool.minima)
                         end
 
                         function setmin_button_Callback(source, eventdata)
@@ -1299,22 +1311,20 @@ classdef dicomViewer < handle
                             if exist('h','var')
                                 count = 1;
                                 strcount = strcat('a',num2str(count));
-                                %while isfield(h, strcount)
+                                while isfield(h, strcount)
                                     pos = getPostion(h.(strcount));
-                                    tool.minima(count) = pos(1,1);
+                                    tool.minima(count) = pos(1,1)*sampleFreq;
                                     count = count + 1;
                                     strcount = strcat('a',num2str(count));
-                                %end
+                                end
                                 msgbox('New minima set')
                                 disp(tool.minima)
                             else
                                 msgbox('Please find minima first')
                             end
 
-                        end              
-                    
-                    
-                    
+                        end
+                        disp(tool.minima)
         end
      
         function pixelTrackAllCallback(hObject,evnt,tool)
@@ -1322,27 +1332,49 @@ classdef dicomViewer < handle
                     dicomFrames = size(tool.I,3);
                     newI = uint8(tool.I); 
                     J = uint8(tool.I);
-                    msgbox('Running Pixel Tracker'); close;
+                    
+                    if ~isempty(tool.currentROI)                 
+                          if isvalid(tool.currentROI)
+                                pos = round(getPosition(tool.currentROI));
+                          end
+                    end
+                    
+%                     disp('tool.currentROI')
+%                     disp(pos)
+%                     return;
                     
                     % Get region of interest
                     framenum = 1;
                     %Create grid of points on the image
-                    pixelsX =size(tool.I,2); pixelsY = size(tool.I,1);
+                    
                     tool.pixelDensity = 10; %percentage of pixels you want to track (between 0-100)
                     if tool.pixelDensity >100
                         tool.pixelDensity = 100;
                     elseif tool.pixelDensity <=0;
                         tool.pixelDensity = 1;
                     end
+                    
+                    if ~isempty(tool.currentROI)                 
+                          if isvalid(tool.currentROI)
+                              pixelsX = pos(3); pixelsY = pos(4);
+                              offsetX = pos(1); offsetY = pos(2);
+                          else
+                              pixelsX =size(tool.I,2); pixelsY = size(tool.I,1);
+                              offsetX = .0001; offsetY = .0001;                              
+                          end
+                    else
+                        pixelsX =size(tool.I,2); pixelsY = size(tool.I,1);
+                        offsetX = .0001; offsetY = .0001;   
+                    end
                     % May want to choose a decimation factor?
                     pixelsBetweenX = (pixelsX-1)/round((pixelsX-1)*tool.pixelDensity/100);
                     pixelsBetweenY = (pixelsY-1)/round((pixelsY-1)*tool.pixelDensity/100);
                     count = 1;
-                    countX = 1;
+                    countX = 1+round(offsetX);
                     % We get an image that is %PixelDensity^2*(pixelsX*pixelsY)
-                    while countX <= pixelsX+.0001
-                        countY=1;
-                        while countY <= pixelsY+.0001
+                    while countX <= pixelsX+offsetX
+                        countY=1+round(offsetY);
+                        while countY <= pixelsY+offsetY
                             points(count,:) = [countX countY];
                             countY = countY + pixelsBetweenY;
                             count = count+1;
@@ -1361,7 +1393,7 @@ classdef dicomViewer < handle
 
                     % Initialize object tracker
                     initialize(tracker, points(:,:,1), objectFrame);
-
+                    h = waitbar(0,'Running pixel tracker...');
                     % Show the points getting tracked
                     while framenum <= dicomFrames
                          %Track the points     
@@ -1370,16 +1402,19 @@ classdef dicomViewer < handle
                           tool.pointLog(:,:,framenum) = points;
                           out = insertMarker(frame, points(validity, :), '+', 'Color', 'white');
                           newI(:,:,framenum) = out(:,:,1);
-
+                          
+                          waitbar(framenum/dicomFrames)
                           framenum = framenum + 1;
                     end
+                    close(h)
                     dicomViewer(newI);
                     %tool.I = newI;
                                         
         end
         
         function pixelStrainCallback(hObject,evnt,tool)
-               if (isempty(tool.pointLog))
+               tool.minima = zeros(2);
+                if (isempty(tool.pointLog))
                    msgbox('Please run pixel tracking first to get strain')
                else
                    dicomFrames = size(tool.I,3);
@@ -1388,9 +1423,42 @@ classdef dicomViewer < handle
                    switch choice
                        case 'Total'
                             % Total difference
-                            for indFrames = 1:dicomFrames-1
-                                pointLogDiff(:,:,indFrames) = tool.pointLog(:,:,indFrames+1) ...
-                                    - tool.pointLog(:,:,1);
+%                             minchoice= questdlg('How do you want to frames with minimum compression?', ...
+%                             'Select frame input method', 'Manual', 'Automatic','Automatic');
+%                             switch minchoice
+%                                 case 'Manual'
+%                                     prompt = {'Input frames of minimum compression (Ex: 1,31,64)'};
+%                                     dlg_title = 'Input';
+%                                     num_lines = 1;
+%                                     def = {'1'};
+%                                     answer = inputdlg(prompt,dlg_title,num_lines,def);
+%                                     tool.minima = str2double(answer);
+%                                     disp(tool.minima)
+%                                 case 'Automatic'
+%                                     msgbox('2 pixel tracker will run to find changes in BV diameter, then in graph click find minima, then set points')
+%                                     pixelTrack2Callback(hObject,evnt,tool);
+%                             end
+                           minNum = 1;
+                           for indFrames = 1:dicomFrames-1
+                                if max(tool.minima > 0)
+                                    minFrame = tool.minima(minNum);
+                                    if indFrames <= minFrame
+                                        frame = tool.pointLog(:,:,minFrame);
+                                    else
+                                        if minNum < length(tool.minima)
+                                            minNum = minNum + 1;
+                                        end
+                                            minFrame = tool.minima(minNum);
+                                            frame = tool.pointLog(:,:,minFrame);
+                                    end
+                                else
+                                    if indFrames == 1;
+                                        msgbox({'Minimum points not detected';'Calculating strain from first image'; 'Run 2 point tracker on vessel edge to find minimum points'})
+                                    end
+                                    frame = tool.pointLog(:,:,1);
+                                end
+                                pointLogDiff(:,:,indFrames) = tool.pointLog(:,:,indFrames) ...
+                                    - frame;     
                             end
                        case 'Image to Image'
                             % Simple difference
@@ -1721,9 +1789,6 @@ axis(tool.handles.Axes,'fill');
 showSlice(tool)
 
 end
-
-
-
 
 
 
