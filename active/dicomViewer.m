@@ -105,7 +105,7 @@ classdef dicomViewer < handle
     %
     %   Requires the image processing toolbox
     
-    properties (SetAccess = private, GetAccess = private)
+    properties (SetAccess = public, GetAccess = public)
         I           %Image data (MxNxK) matrix of image data (double)
         handles     %Structured variable with all the handles
         handlesROI  %list of ROI handles
@@ -115,6 +115,7 @@ classdef dicomViewer < handle
         pointLog  %Log of all the points being tracked
         pixelDensity %Amount of pixels being tracked
         minima %Minimum compressions of blood vessel
+        accStrain % Frames used to find accumulated strain
     end
     
     methods
@@ -208,7 +209,8 @@ classdef dicomViewer < handle
             tool.handles.fig = heightHistogram;
             tool.handlesROI = [];
             tool.currentROI = [];
-            tool.calibration = 85/30;
+            tool.calibration = .012;
+            tool.pixelDensity = 10;
             tool.I = double(tool.I);
             tool.minima = 1;
             
@@ -493,11 +495,11 @@ classdef dicomViewer < handle
             tool.handles.Tools.SaveOptions = ...
                 uicontrol(tool.handles.Panels.Tools,...
                 'Style','popupmenu',...
-                'String',{'as slice','as stack'},...
+                'String',{'as single slice','as entire stack'},...
                 'Position',[lp, buff, 5*widthSidePanel, widthSidePanel]);
             fun = @(hObject,evnt) saveImage(hObject,evnt,tool);
             set(tool.handles.Tools.Save,'Callback',fun)
-            set(tool.handles.Tools.Save,'TooltipString','Save image as slice or tiff stack')
+            set(tool.handles.Tools.Save,'TooltipString','Save image as slice or entire stack')
             
             % Create Circle ROI button
             tool.handles.Tools.CircleROI = ...
@@ -598,7 +600,7 @@ classdef dicomViewer < handle
                 uicontrol(tool.handles.Panels.ROItools,...
                 'Style','pushbutton',...
                 'String','2',...
-                'Position',[buff, buff+15*widthSidePanel, widthSidePanel, widthSidePanel],...
+                'Position',[buff, buff+14*widthSidePanel, widthSidePanel, widthSidePanel],...
                 'TooltipString','Track 2 Points in the Image ');
             fun=@(hObject,evnt) pixelTrack2Callback(hObject,evnt,tool);
             set(tool.handles.Tools.Track2 ,'Callback',fun)
@@ -608,7 +610,7 @@ classdef dicomViewer < handle
                 uicontrol(tool.handles.Panels.ROItools,...
                 'Style','pushbutton',...
                 'String','all',...
-                'Position',[buff, buff+16*widthSidePanel, widthSidePanel, widthSidePanel],...
+                'Position',[buff, buff+15*widthSidePanel, widthSidePanel, widthSidePanel],...
                 'TooltipString','Point Track Entire Region ');
             fun=@(hObject,evnt) pixelTrackAllCallback(hObject,evnt,tool);
             set(tool.handles.Tools.TrackAll ,'Callback',fun)
@@ -618,7 +620,7 @@ classdef dicomViewer < handle
                 uicontrol(tool.handles.Panels.ROItools,...
                 'Style','pushbutton',...
                 'String','str',...
-                'Position',[buff, buff+14*widthSidePanel, widthSidePanel, widthSidePanel],...
+                'Position',[buff, buff+13*widthSidePanel, widthSidePanel, widthSidePanel],...
                 'TooltipString','Find Strain for Entire Region');
             fun=@(hObject,evnt) pixelStrainCallback(hObject,evnt,tool);
             set(tool.handles.Tools.Strain ,'Callback',fun)
@@ -628,7 +630,7 @@ classdef dicomViewer < handle
                 uicontrol(tool.handles.Panels.ROItools,...
                 'Style','pushbutton',...
                 'String','ed',...
-                'Position',[buff, buff+13*widthSidePanel, widthSidePanel, widthSidePanel],...
+                'Position',[buff, buff+12*widthSidePanel, widthSidePanel, widthSidePanel],...
                 'TooltipString','Find Edge of Vessel');
             fun=@(hObject,evnt) pixelEdgeCallback(hObject,evnt,tool);
             set(tool.handles.Tools.Edge ,'Callback',fun)
@@ -638,21 +640,30 @@ classdef dicomViewer < handle
                 uicontrol(tool.handles.Panels.ROItools,...
                 'Style','pushbutton',...
                 'String','->',...
-                'Position',[buff, buff+12*widthSidePanel, widthSidePanel, widthSidePanel],...
+                'Position',[buff, buff+11*widthSidePanel, widthSidePanel, widthSidePanel],...
                 'TooltipString','Create Motion Vectors for pixels in ROI ');
             fun=@(hObject,evnt) pixelMotionCallback(hObject,evnt,tool);
             set(tool.handles.Tools.Motion ,'Callback',fun)
-            
-                    
+                                
             %Create Calibration Button
             tool.handles.Tools.Calibrate = ...
                 uicontrol(tool.handles.Panels.ROItools,...
                 'Style','pushbutton',...
                 'String','cal',...
-                'Position',[buff, buff+11*widthSidePanel, widthSidePanel, widthSidePanel],...
+                'Position',[buff, buff+16*widthSidePanel, widthSidePanel, widthSidePanel],...
                 'TooltipString','Calibrate image pixels to cm ');
             fun = @(hObject,evnt) pixelCalibrateCallback(hObject,evnt,tool);
             set(tool.handles.Tools.Calibrate,'Callback',fun)
+            
+            %Create Settings Button
+            tool.handles.Tools.Settings = ...
+                uicontrol(tool.handles.Panels.ROItools,...
+                'Style','pushbutton',...
+                'String','set',...
+                'Position',[buff, buff+17*widthSidePanel, widthSidePanel, widthSidePanel],...
+                'TooltipString','File Settings');
+            fun = @(hObject,evnt) pixelSettingsCallback(hObject,evnt,tool);
+            set(tool.handles.Tools.Settings,'Callback',fun)
             
             % Create Help Button
             tool.handles.Tools.Help = ...
@@ -1095,9 +1106,29 @@ classdef dicomViewer < handle
                     cm = str2double(answer{1,1});
             
            tool.calibration = cm/pixels;
-            
-            msgbox('Calibration Complete')
+           disp(tool.calibration)
+           msgbox('Calibration Complete')
                 
+        end
+        
+        function pixelSettingsCallback(hObject,evnt,tool)
+            
+            prompt = {'cm/pixel calibration factor:', '% of pixels analyzed:','Frames for accumulated strain:'};
+                    dlg_title = 'Settings';
+                    num_lines = [1, 40; 1, 40; 1, 40];
+                    cal = num2str(tool.calibration);
+                    pixels = num2str(tool.pixelDensity);
+                    accFrames = '1,15'
+                    default = {cal,pixels,'1,15'};
+                    options.Resize='on';
+                    options.WindowStyle='normal';
+                    answer = inputdlg(prompt,dlg_title,num_lines,default,options);
+                    if ~isempty(answer)
+                        tool.calibration = str2double(answer{1,1});
+                        tool.pixelDensity = str2double(answer{2,1});
+                        tool.accStrain = str2num(answer{3,1});
+                    end
+            
         end
         
         function pixelTrack2Callback(hObject,evnt,tool)
@@ -1765,11 +1796,18 @@ switch get(tool.handles.Tools.SaveOptions,'value')
         end
     case 2
         lims=get(tool.handles.Axes,'CLim');
-        [FileName,PathName] = uiputfile({'*.tif'},'Save Image Stack');
+        [FileName,PathName] = uiputfile({'*.dcm';'*.tif'},'Save Image Stack');
+        [~, ~, ext] = fileparts(FileName);
+        disp(FileName)
         if FileName == 0
         else
-            for i=1:size(tool.I,3)
-                imwrite(gray2ind(mat2gray(tool.I(:,:,i),lims),256),cmap, [PathName FileName], 'WriteMode', 'append',  'Compression','none');
+            if strcmp(ext,'.tif') || strcmp(ext,'.TIF')
+                for i=1:size(tool.I,3)
+                    imwrite(gray2ind(mat2gray(tool.I(:,:,i),lims),256),cmap, [PathName FileName], 'WriteMode', 'append',  'Compression','none');
+                end
+            elseif strcmp(ext,'.DCM') || strcmp(ext,'.dcm')
+                   dicomwrite(permute(uint8(tool.I), [1 2 4 3]), FileName);
+            else
             end
         end
 end
