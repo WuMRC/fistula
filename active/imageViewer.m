@@ -1,4 +1,4 @@
-classdef dicomViewer < handle
+classdef imageViewer < handle
     %This is a image slice viewer with built in scroll, contrast, zoom and
     %ROI tools.
     %
@@ -27,27 +27,27 @@ classdef dicomViewer < handle
     %----------------------------------------------------------------------
     %Output:
     %
-    %   tool        The dicomViewer object. Use this object as input to the
+    %   tool        The imageViewer object. Use this object as input to the
     %               class methods described below.
     %----------------------------------------------------------------------
     %Constructor Syntax
     %
-    %tool = dicomViewer() creates an dicomViewer panel in the current figure with
-    %a random noise image. Returns the dicomViewer object.
+    %tool = imageViewer() creates an imageViewer panel in the current figure with
+    %a random noise image. Returns the imageViewer object.
     %
-    %tool = dicomViewer(I) sets the image of the dicomViewer panel.
+    %tool = imageViewer(I) sets the image of the imageViewer panel.
     %
-    %tool = dicomViewer(I,position) sets the position of the dicomViewer panel
+    %tool = imageViewer(I,position) sets the position of the imageViewer panel
     %within the current figure. The default units are normalized.
     %
-    %tool = dicomViewer(I,position,h) puts the dicomViewer panel in the figure
+    %tool = imageViewer(I,position,h) puts the imageViewer panel in the figure
     %specified by the handle h.
     %
-    %tool = dicomViewer(I,position,h,range) sets the display range of the
+    %tool = imageViewer(I,position,h,range) sets the display range of the
     %image according to range=[min max].
     %
     %Note that you can pass an empty matrix for any input variable to have
-    %the constructor use default values. ex. tool=dicomViewer([],[],h,[]).
+    %the constructor use default values. ex. tool=imageViewer([],[],h,[]).
     %----------------------------------------------------------------------
     %Methods:
     %
@@ -68,7 +68,7 @@ classdef dicomViewer < handle
     %
     %   handles = getHandles(tool) returns a structured variable, handles,
     %   which contains all the handles to the various objects used by
-    %   dicomViewer.
+    %   imageViewer.
     %
     %   setDisplayRange(tool,range) sets the display range of the image.
     %   see the 'Clim' property of an Axes object for details.
@@ -111,20 +111,16 @@ classdef dicomViewer < handle
         handlesROI  %list of ROI handles
         currentROI  %Currently selected ROI
         centers     %list of bin centers for histogram
-        calibration %Converts pixels to mm
-        pointLog  %Log of all the points being tracked
-        pixelDensity %Amount of pixels being tracked
-        minima %Minimum compressions of blood vessel
-        accStrain % Frames used to find accumulated strain
+
     end
     
     methods
         
-        function tool = dicomViewer(varargin)  %Constructor
+        function tool = imageViewer(varargin)  %Constructor
             %%
             %Check the inputs and set things appropriately
             switch nargin
-                case 0  %tool = dicomViewer()
+                case 0  %tool = imageViewer()
                     [fileName, filePath] = uigetfile('*.DCM;*.dcm;*.mat', ...
                         'Choose DICOM images to import', pwd, ...
                         'MultiSelect', 'off');
@@ -152,22 +148,22 @@ classdef dicomViewer < handle
 %                         end
                         pixelValueRange = [min(tool.I(:)), max(tool.I(:))];
                     end
-                case 1  %tool = dicomViewer(I)
+                case 1  %tool = imageViewer(I)
                     tool.I = varargin{1}; position=[0 0 1 1];
                     heightHistogram= figure('Position', [400 200 600 600]);
                     set(heightHistogram,'Toolbar','none','Menubar','none')
                     pixelValueRange = [min(tool.I(:)), max(tool.I(:))];
-                case 2  %tool = dicomViewer(I,position)
+                case 2  %tool = imageViewer(I,position)
                     tool.I=varargin{1}; position=varargin{2};
                     heightHistogram=figure;
                     set(heightHistogram,'Toolbar','none','Menubar','none')
                     pixelValueRange=[min(tool.I(:)), max(tool.I(:))];
-                case 3  %tool = dicomViewer(I,position,h)
+                case 3  %tool = imageViewer(I,position,h)
                     tool.I=varargin{1};
                     position=varargin{2};
                     heightHistogram=varargin{3};
                     pixelValueRange=[min(tool.I(:)), max(tool.I(:))];
-                case 4  %tool = dicomViewer(I,position,h,range)
+                case 4  %tool = imageViewer(I,position,h,range)
                     tool.I=varargin{1};
                     position=varargin{2};
                     heightHistogram=varargin{3};
@@ -210,10 +206,7 @@ classdef dicomViewer < handle
             tool.handles.fig = heightHistogram;
             tool.handlesROI = [];
             tool.currentROI = [];
-            tool.calibration = .012;
-            tool.pixelDensity = 10;
-            tool.I = double(tool.I);
-            tool.minima = 1;
+
             
             %%
             % Create the panels and slider
@@ -592,115 +585,27 @@ classdef dicomViewer < handle
             set(tool.handles.Tools.Crop ,'Cdata',icon_profile)
             fun=@(hObject,evnt) CropImageCallback(hObject,evnt,tool);
             set(tool.handles.Tools.Crop ,'Callback',fun)
-            
-            % ********************************NEW STUFF**************************
-            pos = get(tool.handles.Panels.ROItools,'Position');
-            % Create 2 pixel tracking button
-            tool.handles.Tools.Track2 = ...
-                uicontrol(tool.handles.Panels.ROItools,...
-                'Style','pushbutton',...
-                'String','2 Points',...
-                'Position',[buff, buff+13*widthSidePanel, 3.5*widthSidePanel, widthSidePanel],...
-                'TooltipString','Track 2 Points in the Image ');
-            fun=@(hObject,evnt) pixelTrack2Callback(hObject,evnt,tool);
-            set(tool.handles.Tools.Track2 ,'Callback',fun)
-            
-            %Create entire frame tracking button
-            tool.handles.Tools.TrackAll = ...
-                uicontrol(tool.handles.Panels.ROItools,...
-                'Style','pushbutton',...
-                'String','Entire ROI',...
-                'Position',[buff, buff+14*widthSidePanel, 3.5*widthSidePanel, widthSidePanel],...
-                'TooltipString','Point Track Entire Region ');
-            fun=@(hObject,evnt) pixelTrackAllCallback(hObject,evnt,tool);
-            set(tool.handles.Tools.TrackAll ,'Callback',fun)
-            
-            %Create Strain button
-            tool.handles.Tools.Strain = ...
-                uicontrol(tool.handles.Panels.ROItools,...
-                'Style','pushbutton',...
-                'String','Strain',...
-                'Position',[buff, buff+10*widthSidePanel, 3.5*widthSidePanel, widthSidePanel],...
-                'TooltipString','Find Strain for Entire Region');
-            fun=@(hObject,evnt) pixelStrainCallback(hObject,evnt,tool);
-            set(tool.handles.Tools.Strain ,'Callback',fun)
-            
-            %Create Wall Shear button
-            tool.handles.Tools.Shear = ...
-                uicontrol(tool.handles.Panels.ROItools,...
-                'Style','pushbutton',...
-                'String','Shear',...
-                'Position',[buff, buff+9*widthSidePanel, 3.5*widthSidePanel, widthSidePanel],...
-                'TooltipString','Find Wall Shear Rate in Region of Interest ');
-            fun=@(hObject,evnt) pixelShearCallback(hObject,evnt,tool);
-            set(tool.handles.Tools.Shear ,'Callback',fun)
-            
-            %Create gray threshold edge detect button
-            tool.handles.Tools.Edge = ...
-                uicontrol(tool.handles.Panels.ROItools,...
-                'Style','pushbutton',...
-                'String','Edge',...
-                'Position',[buff, buff+8*widthSidePanel, 3.5*widthSidePanel, widthSidePanel],...
-                'TooltipString','Find Edge of Vessel');
-            fun=@(hObject,evnt) pixelEdgeCallback(hObject,evnt,tool);
-            set(tool.handles.Tools.Edge ,'Callback',fun)
-            
-%             %Create Motion Vector button
-%             tool.handles.Tools.Motion = ...
-%                 uicontrol(tool.handles.Panels.ROItools,...
-%                 'Style','pushbutton',...
-%                 'String','Motion',...
-%                 'Position',[buff, buff+8*widthSidePanel, 3.5*widthSidePanel, widthSidePanel],...
-%                 'TooltipString','Create Motion Vectors for pixels in Region of Interest ');
-%             fun=@(hObject,evnt) pixelMotionCallback(hObject,evnt,tool);
-%             set(tool.handles.Tools.Motion ,'Callback',fun)
-                                
-            %Create Calibration Button
-            tool.handles.Tools.Calibrate = ...
-                uicontrol(tool.handles.Panels.ROItools,...
-                'Style','pushbutton',...
-                'String','Calibrate',...
-                'Position',[buff, buff+19*widthSidePanel, 3.5*widthSidePanel, widthSidePanel],...
-                'TooltipString','Calibrate image pixels to cm ');
-            fun = @(hObject,evnt) pixelCalibrateCallback(hObject,evnt,tool);
-            set(tool.handles.Tools.Calibrate,'Callback',fun)
-            
-            %Create Settings Button
-            tool.handles.Tools.Settings = ...
-                uicontrol(tool.handles.Panels.ROItools,...
-                'Style','pushbutton',...
-                'String','Settings',...
-                'Position',[buff, buff+20*widthSidePanel, 3.5*widthSidePanel, widthSidePanel],...
-                'TooltipString','File Settings');
-            fun = @(hObject,evnt) pixelSettingsCallback(hObject,evnt,tool);
-            set(tool.handles.Tools.Settings,'Callback',fun)
+  
             
             % Create Help Button
             tool.handles.Tools.Help = ...
                 uicontrol(tool.handles.Panels.ROItools,...
                 'Style','pushbutton',...
                 'String','Help',...
-                'Position',[buff, buff+18*widthSidePanel, 3.5*widthSidePanel, widthSidePanel],...
-                'TooltipString','Help with dicomViewer');
+                'Position',[buff, buff+8*widthSidePanel, 3.5*widthSidePanel, widthSidePanel],...
+                'TooltipString','Help with imageViewer');
             fun = @(hObject,evnt) displayHelp(hObject,evnt,tool);
             set(tool.handles.Tools.Help,'Callback',fun)
             
              %Create text boxes for user guidance
-             tool.handles.Tools.SetUp = uicontrol(tool.handles.Panels.ROItools,'Style','text',...
-                'String','Set Up','BackgroundColor','k','ForegroundColor','w','FontWeight','bold',...
-                'Position',[buff, buff+21*widthSidePanel, 3.5*widthSidePanel, widthSidePanel]);
+
             tool.handles.Tools.ROI = uicontrol(tool.handles.Panels.ROItools,'Style','text',...
                 'String','ROI Tools','BackgroundColor','k','ForegroundColor','w','FontWeight','bold',...
                 'Position',[buff, buff+3*widthSidePanel, 3.5*widthSidePanel, 1*widthSidePanel]);
             tool.handles.Tools.Image = uicontrol(tool.handles.Panels.ROItools,'Style','text',...
                 'String','Image Tools','BackgroundColor','k','ForegroundColor','w','FontWeight','bold',...
                 'Position',[buff, buff+6*widthSidePanel, 3.5*widthSidePanel, widthSidePanel]);        
-            tool.handles.Tools.Analyze = uicontrol(tool.handles.Panels.ROItools,'Style','text',...
-                'String','Analysis','BackgroundColor','k','ForegroundColor','w','FontWeight','bold',...
-                'Position',[buff, buff+11*widthSidePanel, 3.5*widthSidePanel, widthSidePanel]);        
-            tool.handles.Tools.ImageTracking = uicontrol(tool.handles.Panels.ROItools,'Style','text',...
-                'String', 'Image Tracking','BackgroundColor','k','ForegroundColor','w','FontWeight','bold',...
-                'Position',[buff, buff+15*widthSidePanel, 3.5*widthSidePanel, 2*widthSidePanel]);
+   
             
             % Set font size of all the tool objects
             set(cell2mat(struct2cell(tool.handles.Tools)),...
@@ -1088,7 +993,7 @@ classdef dicomViewer < handle
         
         function displayHelp(hObject,evnt,tool)
             
-            message={'Welcome to dicomViewer', ...
+            message={'Welcome to imageViewer', ...
                 '',...
                 'Left Mouse Button: Window and Level', ...
                 'Right Mouse Button: Pan', ...
@@ -1112,551 +1017,6 @@ classdef dicomViewer < handle
             set(tool.handles.Axes,'Ylim',get(tool.handles.I,'YData'))
         end
         
-        % ***********************NEW***********************************************************
-        function pixelCalibrateCallback(hObject,evnt,tool)
-            %Select Points to Track
-            msgbox('Select two points with a know distance, then hit "Enter"');
-            close;
-            figHandle = gcf;
-            [poiX, poiY] = getpts(figHandle);
-
-            poiX = round(poiX);     poiY = round(poiY);
-            %Calculate the distance in pixels
-            pixels = sqrt ((poiX(1) - poiX(2))^2+(poiY(1) - poiY(2))^2);
-            
-            %Have user input distance in cm
-            prompt = {'Input distance between 2 points (cm):'};
-                    dlg_title = 'Input';
-                    num_lines = 1;
-                    default = {'1'};
-                    options.Resize='on';
-                    options.WindowStyle='normal';
-                    answer = inputdlg(prompt,dlg_title,num_lines,default,options);
-                    cm = str2double(answer{1,1});
-            
-           tool.calibration = cm/pixels;
-           disp(tool.calibration)
-           msgbox('Calibration Complete')
-                
-        end
-        
-        function pixelSettingsCallback(hObject,evnt,tool)
-            
-            prompt = {'cm/pixel calibration factor:', '% of pixels analyzed (1-100%):','Frames for accumulated strain:'};
-                    dlg_title = 'Settings';
-                    num_lines = [1, 40; 1, 40; 1, 40];
-                    cal = num2str(tool.calibration);
-                    pixels = num2str(tool.pixelDensity);
-                    accFrames = '1,15';
-                    default = {cal,pixels,'1,15'};
-                    options.Resize='on';
-                    options.WindowStyle='normal';
-                    answer = inputdlg(prompt,dlg_title,num_lines,default,options);
-                    if ~isempty(answer)
-                        tool.calibration = str2double(answer{1,1});
-                        tool.pixelDensity = str2double(answer{2,1});
-                        tool.accStrain = str2num(answer{3,1});
-                    end
-            
-        end
-        
-        function pixelTrack2Callback(hObject,evnt,tool)
-              
-                    dicomFrames = size(tool.I,3);
-                    newI = uint8(tool.I); 
-                    J = uint8(tool.I);
-                    % Get region of interest
-                    framenum = 1;
-                    objectFrame = J(:,:,framenum);
-                   
-                    %Select Points to Track
-                    msgbox('Select two points to track, then hit "Enter"');
-                    close;
-                    figHandle = gcf;
-                    [poiX, poiY] = getpts(figHandle);
-
-                    poiX = round(poiX);     poiY = round(poiY);
-                    nPoints = size(poiX,1);
-                    tool.pointLog = zeros(nPoints, 2, dicomFrames);
-                    points = [poiX, poiY];
-                    pointImage = insertMarker(objectFrame, points, '+', 'Color', 'white');
-                    newI(:,:,1) = pointImage(:,:,1);
-                    pointDist = zeros(1,dicomFrames);
-                    
-                    % Create object tracker
-                    tracker = vision.PointTracker('MaxBidirectionalError', 3);
-
-                    % Initialize object tracker
-                    initialize(tracker, points(:,:,1), objectFrame);
-
-                    % Show the points getting tracked
-                    while framenum <= dicomFrames
-                         %Track the points     
-                          frame =J(:,:,framenum);
-                          [points, validity] = step(tracker, frame);
-                          tool.pointLog(:,:,framenum) = points;
-                          out = insertMarker(frame, points(validity, :), '+', 'Color', 'white');
-                          newI(:,:,framenum) = out(:,:,1);
-
-                          %Compute the distance between the 2 points
-                          pointDist(framenum) = sqrt ((tool.pointLog(1,1,framenum) - tool.pointLog(2,1,framenum))^2+(tool.pointLog(1,2,framenum) - tool.pointLog(2,2,framenum))^2);
-
-                          framenum = framenum + 1;
-                    end
-                    
-                    %Convert pixels to cm and percent
-                    cm = tool.calibration;
-                    pointDistCm = pointDist.*cm;
-                    pointDistPercent = pointDist.*100./max(max(pointDist));
-                    pointDistTp = pointDistCm - min(pointDistCm);
-                    pointDistTpPercent = pointDistPercent-min(pointDistPercent);
-                  
-                    sampleFreq = 16; %want to obtain this from dicom somehow
-                    time = (1:dicomFrames)/sampleFreq;
-                    
-%                     figure;
-%                     plot(time, pointDistPercent)
-%                     xlabel('Time'); ylabel('Distance (%)')
-%                     title('Distance between 2 points')
-                    
-                    imageViewer(newI);
-                    
-                    %Initialize global variables
-                    h  = struct;
-                    tool.minima = tool.minima;
-                    % Plot the tracked pixel movement in a switchable GUI
-                    % Create and then hide the GUI as it is being constructed. 
-                    f = figure('Visible','off','Position',[360,500,475,350]); %Left bottom width height
-
-                    % Construct the components. 
-
-                    hpopup = uicontrol('Style','popupmenu',... 
-                        'String',{'Distance [cm]','Distance [%]','Distensibility [cm]','Distensibility [%]'},... 
-                        'Position',[25,320,100,25],...
-                        'Callback',{@popup_menu_Callback});
-
-                    hdrawmin = uicontrol('Style','pushbutton',... 
-                        'String','Find Local Minima','Position',[150,320,110,25],...
-                        'Callback',{@drawmin_button_Callback});
-
-                    hsetmin = uicontrol('Style','pushbutton',... 
-                        'String','Set Minima','Position',[285,320,70,25],...
-                        'Callback',{@setmin_button_Callback});
-
-                    ha = axes('Units','pixels','Position',[25,25,425,270]); 
-
-                    % Change units to normalized so components resize automatically. 
-                    set([f,ha,hpopup,hdrawmin,hsetmin],'Units','normalized');
-
-                    % Create a plot in the axes. 
-                    plot(time, pointDistCm)
-                    xlabel('Time [s]'); ylabel('Distance [cm]')
-                    title('Distance between 2 points')
-
-                    % Assign the GUI a name to appear in the window title. 
-                    set(f,'Name','Distance Between 2 Points')
-                    % Move the GUI to the center of the screen. 
-                    movegui(f,'center')
-                    % Make the GUI visible. 
-                    set(f,'Visible','on');
-
-                    % Pop-up menu callback. Read the pop-up menu and display property
-
-                        function popup_menu_Callback(source,eventdata) 
-                            % Determine the selected data set. 
-                            str = get(source, 'String'); 
-                            val = get(source,'Value'); 
-
-                            % Set current data to the selected data set.
-                            switch str{val}; 
-                                case 'Distance [cm]' % User selects cm
-                                    plot(time, pointDistCm)
-                                    xlabel('Time [s]'); ylabel('Distance [cm]')
-                                    title('Distance between 2 points')
-                                case 'Distensibility [cm]' % User selects cm
-                                    plot(time, pointDistTp)
-                                    xlabel('Time [s]'); ylabel('Distance [cm]')
-                                    title('Distensibility between 2 points')    
-                                case 'Distance [%]'   % User selects percent
-                                    plot(time, pointDistPercent)
-                                    xlabel('Time [s]'); ylabel('Distance [%]')
-                                    title('Distance between 2 points')
-                                case 'Distensibility [%]' % User selects cm
-                                    plot(time, pointDistTpPercent)
-                                    xlabel('Time [s]'); ylabel('Distance [%]')
-                                    title('Distensibility between 2 points')   
-                            end
-                        end
-
-                        function [lmval,indd]=lmin(xx,filt)
-                            %Find the local minima in a data set, excludes the first
-                            %and last points.
-                            % Created by Serge Koptenko, Guigne International Ltd.
-                            x=xx;
-                            len_x = length(x);
-                                fltr=[1 1 1]/3;
-                              if nargin <2, filt=0; 
-                                else
-                            x1=x(1); x2=x(len_x); 
-
-                                for jj=1:filt,
-                                c=conv(fltr,x);
-                                x=c(2:len_x+1);
-                                x(1)=x1;  
-                                    x(len_x)=x2; 
-                                end
-                              end
-
-                            lmval=[];
-                            indd=[];
-                            i=2;		% start at second data point in time series
-
-                                while i < len_x-1,
-                                if x(i) < x(i-1)
-                                   if x(i) < x(i+1)	% definite min
-                            lmval =[lmval x(i)];
-                            indd = [ indd i];
-
-                                   elseif x(i)==x(i+1)&x(i)==x(i+2)	% 'long' flat spot
-                            %lmval =[lmval x(i)];	%1   comment these two lines for strict case 
-                            %indd = [ indd i];	%2 when only  definite min included
-                            i = i + 2;  		% skip 2 points
-
-                                   elseif x(i)==x(i+1)	% 'short' flat spot
-                            %lmval =[lmval x(i)];	%1   comment these two lines for strict case
-                            %indd = [ indd i];	%2 when only  definite min included
-                            i = i + 1;		% skip one point
-                                   end
-                                end
-                                i = i + 1;
-                                end
-
-                            if filt>0 & ~isempty(indd),
-                                if (indd(1)<= 3)|(indd(length(indd))+2>length(xx)), 
-                                   rng=1;	%check if index too close to the edge
-                                else rng=2;
-                                end
-
-                                   for ii=1:length(indd), 
-                                    [val(ii) iind(ii)] = min(xx(indd(ii) -rng:indd(ii) +rng));
-                                    iind(ii)=indd(ii) + iind(ii)  -rng-1;
-                                   end
-                              indd=iind; lmval=val;
-                            else
-                            end
-                        end
-
-                        function drawmin_button_Callback(source,eventdata)
-                            %Draw vertical lines indicating the location of local minima
-                            %Find local minima
-                            [lmval,indd]=lmin(pointDistCm,1);
-                            tool.minima = round(indd);
-                            buffer = (max(pointDistCm)-min(pointDistCm))/4;
-                            count = 1;
-                            %Create lines
-                            while count <= length(lmval)
-                                x = [tool.minima(count)/sampleFreq, tool.minima(count)/sampleFreq];
-                                y = [lmval(count)-buffer, lmval(count)+buffer];
-                                strcount = strcat('a',num2str(count));
-                                h.(strcount) = imline(gca, x, y);
-                                count = count + 1;
-                            end
-                            disp(tool.minima)
-                        end
-
-                        function setmin_button_Callback(source, eventdata)
-                            %Set location of local minimum
-                            %Information is used to calculate strain from the minimal vessel
-                            %dialation.
-                            if exist('h','var')
-                                count = 1;
-                                strcount = strcat('a',num2str(count));
-                                while isfield(h, strcount)
-                                    pos = getPostion(h.(strcount));
-                                    tool.minima(count) = pos(1,1)*sampleFreq;
-                                    count = count + 1;
-                                    strcount = strcat('a',num2str(count));
-                                end
-                                msgbox('New minima set')
-                                disp(tool.minima)
-                            else
-                                msgbox('Please find minima first')
-                            end
-
-                        end
-                        disp(tool.minima)
-        end
-     
-        function pixelTrackAllCallback(hObject,evnt,tool)
-              
-                    dicomFrames = size(tool.I,3);
-                    newI = uint8(tool.I); 
-                    J = uint8(tool.I);
-                    
-                    if ~isempty(tool.currentROI)                 
-                          if isvalid(tool.currentROI)
-                                pos = round(getPosition(tool.currentROI));
-                          end
-                    end
-                    
-%                     disp('tool.currentROI')
-%                     disp(pos)
-%                     return;
-                    
-                    %Create grid of points on the image
-                    
-                    if tool.pixelDensity >100
-                        tool.pixelDensity = 100;
-                    elseif tool.pixelDensity <=0;
-                        tool.pixelDensity = 1;
-                    end
-                    
-                    if ~isempty(tool.currentROI)                 
-                          if isvalid(tool.currentROI)
-                              pixelsX = pos(3); pixelsY = pos(4);
-                              offsetX = pos(1); offsetY = pos(2);
-                          else
-                              pixelsX =size(tool.I,2); pixelsY = size(tool.I,1);
-                              offsetX = .0001; offsetY = .0001;                              
-                          end
-                    else
-                        pixelsX =size(tool.I,2); pixelsY = size(tool.I,1);
-                        offsetX = .0001; offsetY = .0001;   
-                    end
-                    % May want to choose a decimation factor?
-                    pixelsBetweenX = (pixelsX-1)/round((pixelsX-1)*tool.pixelDensity/100);
-                    pixelsBetweenY = (pixelsY-1)/round((pixelsY-1)*tool.pixelDensity/100);
-                    count = 1;
-                    countX = 1+round(offsetX);
-                    % We get an image that is %PixelDensity^2*(pixelsX*pixelsY)
-                    while countX <= pixelsX+offsetX
-                        countY=1+round(offsetY);
-                        while countY <= pixelsY+offsetY
-                            points(count,:) = [countX countY];
-                            countY = countY + pixelsBetweenY;
-                            count = count+1;
-                        end
-                        countX = countX + pixelsBetweenX;
-                    end
-                    nPoints = count - 1;
-                    tool.pointLog = zeros(nPoints, 2, dicomFrames);
-                    framenum = 1;
-                    objectFrame = newI(:,:,1);
-                    pointImage = insertMarker(objectFrame, points, '+', 'Color', 'white');
-                    newI(:,:,1) = pointImage(:,:,1);
-                    
-                    % Create object tracker
-                    tracker = vision.PointTracker('MaxBidirectionalError', 3);
-
-                    % Initialize object tracker
-                    initialize(tracker, points(:,:,1), objectFrame);
-                    h = waitbar(0,'Running pixel tracker...');
-                    % Show the points getting tracked
-                    while framenum <= dicomFrames
-                         %Track the points     
-                          frame =J(:,:,framenum);
-                          [points, validity] = step(tracker, frame);
-                          tool.pointLog(:,:,framenum) = points;
-                          out = insertMarker(frame, points(validity, :), '+', 'Color', 'white');
-                          newI(:,:,framenum) = out(:,:,1);
-                          
-                          waitbar(framenum/dicomFrames)
-                          framenum = framenum + 1;
-                    end
-                    close(h)
-                    imageViewer(newI);
-                    %tool.I = newI;
-                                        
-        end
-        
-        function pixelStrainCallback(hObject,evnt,tool)
-               tool.minima = zeros(2);
-                if (isempty(tool.pointLog))
-                   msgbox('Please run pixel tracking first to get strain')
-               else
-                   dicomFrames = size(tool.I,3);
-                   choice = questdlg('Which type of strain would you like to display?', ...
-                        'Select strain type', 'Total', 'Image to Image','Image to Image');
-                   switch choice
-                       case 'Total'
-                            % Total difference
-%                             minchoice= questdlg('How do you want to frames with minimum compression?', ...
-%                             'Select frame input method', 'Manual', 'Automatic','Automatic');
-%                             switch minchoice
-%                                 case 'Manual'
-%                                     prompt = {'Input frames of minimum compression (Ex: 1,31,64)'};
-%                                     dlg_title = 'Input';
-%                                     num_lines = 1;
-%                                     def = {'1'};
-%                                     answer = inputdlg(prompt,dlg_title,num_lines,def);
-%                                     tool.minima = str2double(answer);
-%                                     disp(tool.minima)
-%                                 case 'Automatic'
-%                                     msgbox('2 pixel tracker will run to find changes in BV diameter, then in graph click find minima, then set points')
-%                                     pixelTrack2Callback(hObject,evnt,tool);
-%                             end
-                           minNum = 1;
-                           for indFrames = 1:dicomFrames-1
-                                if max(tool.minima > 0)
-                                    minFrame = tool.minima(minNum);
-                                    if indFrames <= minFrame
-                                        frame = tool.pointLog(:,:,minFrame);
-                                    else
-                                        if minNum < length(tool.minima)
-                                            minNum = minNum + 1;
-                                        end
-                                            minFrame = tool.minima(minNum);
-                                            frame = tool.pointLog(:,:,minFrame);
-                                    end
-                                else
-                                    if indFrames == 1;
-                                        msgbox({'Minimum points not detected';'Calculating strain from first image'; 'Run 2 point tracker on vessel edge to find minimum points'})
-                                    end
-                                    frame = tool.pointLog(:,:,1);
-                                end
-                                pointLogDiff(:,:,indFrames) = tool.pointLog(:,:,indFrames) ...
-                                    - frame;     
-                            end
-                       case 'Image to Image'
-                            % Simple difference
-                            for indFrames = 1:dicomFrames-1
-                                pointLogDiff(:,:,indFrames) = tool.pointLog(:,:,indFrames+1) ...
-                                    - tool.pointLog(:,:,indFrames);
-                            end
-                    end
-                    %I don't know how accurate these 2 calculations
-                    %are...I think they need to be reevaluated
-                    pixelsX = size(tool.I,2); pixelsY = size(tool.I,1);
-                    pixelsXtracked = round(pixelsX*tool.pixelDensity/100)+1;
-                    pixelsYtracked = round(pixelsY*tool.pixelDensity/100)+1;
-                    trackedPixels = pixelsXtracked*pixelsYtracked;
-                    % Separate x and y differences for each point on the image
-                    counter = 1;
-                    for indFrame = 1:dicomFrames-1
-                        for ind = 1:pixelsYtracked:trackedPixels
-                            xDiff(:,counter,indFrame) = pointLogDiff(ind:(ind+pixelsYtracked-1),1,indFrame);
-                            yDiff(:,counter,indFrame) = pointLogDiff(ind:(ind+pixelsYtracked-1),2,indFrame);
-                            counter = counter+1;
-                        end
-                        counter = 1;
-                    end
-                    totalDiff = sqrt(xDiff.^2 + yDiff.^2);
-                    imageViewer(totalDiff);
-               end
-        end
-        
-        function pixelShearCallback(hObject,evnt,tool)
-            if ~isempty(tool.currentROI)                 
-                  if isvalid(tool.currentROI)
-                       if (isempty(tool.pointLog))
-                           msgbox('Please run pixel tracking first to get strain')
-                       else
-                           J = uint8(tool.I);
-                           dicomFrames = size(tool.I,3);
-                            points = tool.pointLog;
-                            pointsTracked = size(points,1);
-                            shear = ones(size(J));
-                            % Create new image showing shear rate magnitudes
-                            h = waitbar(0,'Calculating shear rate...');
-                            for indFrame = 1:dicomFrames-1
-                                waitbar(indFrame/dicomFrames)
-                                for ind = 1:pointsTracked
-                                    IX = J(:,:,indFrame);                  %Frame 1
-                                    IY = J(:,:,indFrame+1);              %Frame 2
-                                    FILT = [1 1 1; 1 1 1; 1 1 1];        %Filter matrix
-                                    KRNL_LMT = [2 2];                   %Group of pixels you're trying to find in next image
-                                    SRCH_LMT = [2 2];                   %Region
-                                    POS = round(points(ind,:,indFrame));  %Origin of krnl and srch 
-                                    [RHO]=corr2D(IX,IY,FILT,KRNL_LMT,SRCH_LMT,POS);
-                                    
-                                    shear(POS(2)-2:POS(2)+2,POS(1)-2:POS(1)+2,indFrame) = max(max(RHO));
-                                end
-                            end
-                            close(h);
-                            imageViewer(shear);                         
-                       end   
-                  else
-                       msgbox('Please select a region of interest');
-                       return;
-                  end
-            else
-                  msgbox('Please select a region of interest');
-                  return;  
-            end
-        end
-        
-        function pixelEdgeCallback(hObject,evnt,tool)
-            if ~isempty(tool.currentROI)                 
-                  if isvalid(tool.currentROI)
-                       imageROI = tool.currentROI;
-                       disp(tool.currentROI);
-                      % GRAYTHRESH EDGE DETECT
-                        indFrame = 1;
-                        imageROI = uint8(tool.I);
-                        nFrames = size(tool.I,3);
-                        while indFrame <= nFrames
-                            imageROI_adjusted(:,:,indFrame) = imadjust(imageROI(:,:,indFrame));
-                            imageROI_level(indFrame) = graythresh(imageROI_adjusted(:,:,indFrame));
-                            imageROI_BW(:,:,indFrame) = im2bw(imageROI_adjusted(:,:,indFrame),...
-                                imageROI_level(indFrame)*.3);
-                            indFrame = indFrame + 1;
-                        end
-                        imageROI_BW = uint8(imageROI_BW);
-                       imageViewer(imageROI_BW)
-                        % An interesting result
-                        time = (1:nFrames)./16;
-                        figure;
-                        plot(time,imageROI_level)
-                        xlabel('Time [s]')
-                        ylabel('Graythreshold')
-                        title('A heartbeat measure by image contrast')
-                        else
-                            msgbox('Please select a region of interest');
-                            return;
-                   end
-             else
-                  msgbox('Please select a region of interest');
-                  return;
-             end
-
-        end
-        
-        function pixelMotionCallback(hObject,evnt,tool)
-                    
-                    dicomFrames = size(tool.I, 3);
-                    dicomSize = size(tool.I);
-
-                    newI = uint8(tool.I);
-                    J = uint8(tool.I);
-
-                    % Get region of interest
-                    framenum = 1;
-                    objectFrame = J(:,:,framenum);
-                    objectRegion = [0 0 dicomSize(1) dicomSize(2)];
-
-                    %Assign motion vector functions
-                    converter = vision.ImageDataTypeConverter; 
-                    shapeInserter = vision.ShapeInserter('Shape','Lines',...
-                        'BorderColor','Custom', 'CustomBorderColor', 255);
-
-                    % Track the movement of the image. This is the key function to understand here
-                    opticalFlow = vision.OpticalFlow('ReferenceFrameDelay', 1);
-                    opticalFlow.OutputValue = ...
-                        'Horizontal and vertical components in complex form';
-
-                    while framenum < dicomFrames
-                        framenum = framenum + 1;
-                        frame = J(:,:,framenum);
-                        im = step(converter, frame);
-                        of = step(opticalFlow, im);
-                        lines = videooptflowlines(of, 10);  %(velocity value, scale factor)
-                        if ~isempty(lines)
-                          out =  step(shapeInserter, im, lines); 
-                          newI(:,:,framenum) = out(:,:,1);
-                        end
-                    end
-                    imageViewer(newI);                  
-           end
         
     end
     
