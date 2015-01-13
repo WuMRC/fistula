@@ -609,7 +609,7 @@ classdef dicomViewer < handle
             tool.handles.Tools.TrackAll = ...
                 uicontrol(tool.handles.Panels.ROItools,...
                 'Style','pushbutton',...
-                'String','Entire ROI',...
+                'String','All',...
                 'Position',[buff, buff+14*widthSidePanel, 3.5*widthSidePanel, widthSidePanel],...
                 'TooltipString','Point Track Entire Region ');
             fun=@(hObject,evnt) pixelTrackAllCallback(hObject,evnt,tool);
@@ -1423,7 +1423,7 @@ classdef dicomViewer < handle
                         pixelsX =size(tool.I,2); pixelsY = size(tool.I,1);
                         offsetX = .0001; offsetY = .0001;   
                     end
-                    % May want to choose a decimation factor?
+                    % Find pixel spacing using decimation factor (tool.pixelDensity)
                     pixelsBetweenX = (pixelsX-1)/round((pixelsX-1)*tool.pixelDensity/100);
                     pixelsBetweenY = (pixelsY-1)/round((pixelsY-1)*tool.pixelDensity/100);
                     count = 1;
@@ -1444,7 +1444,7 @@ classdef dicomViewer < handle
                     objectFrame = newI(:,:,1);
                     pointImage = insertMarker(objectFrame, points, '+', 'Color', 'white');
                     newI(:,:,1) = pointImage(:,:,1);
-                    
+                    quality = ones(1,dicomFrames);
                     % Create object tracker
                     tracker = vision.PointTracker('MaxBidirectionalError', 3);
 
@@ -1452,20 +1452,26 @@ classdef dicomViewer < handle
                     initialize(tracker, points(:,:,1), objectFrame);
                     h = waitbar(0,'Running pixel tracker...');
                     % Show the points getting tracked
-                    while framenum <= dicomFrames
+                    while framenum < dicomFrames
                          %Track the points     
                           frame =J(:,:,framenum);
                           [points, validity] = step(tracker, frame);
                           tool.pointLog(:,:,framenum) = points;
                           out = insertMarker(frame, points(validity, :), '+', 'Color', 'white');
-                          newI(:,:,framenum) = out(:,:,1);
-                          
-                          waitbar(framenum/dicomFrames)
                           framenum = framenum + 1;
+                          quality(framenum) = sum(validity)/length(validity);
+                          newI(:,:,framenum) = out(:,:,1);
+                          waitbar(framenum/dicomFrames)   
                     end
                     close(h)
                     imageViewer(newI);
-                    %tool.I = newI;
+                    frames = (1:dicomFrames);
+                    quality = quality*100;
+                     figure;
+                     plot(frames, quality)
+                     xlabel('Frames'); ylabel('% of Points Tracked')
+                     title('Tracking Quality')
+                    
                                         
         end
         
@@ -1563,9 +1569,9 @@ classdef dicomViewer < handle
                                 for ind = 1:pointsTracked
                                     IX = J(:,:,indFrame);                  %Frame 1
                                     IY = J(:,:,indFrame+1);              %Frame 2
-                                    FILT = [1 1 1; 1 1 1; 1 1 1];        %Filter matrix
+                                    FILT = ones(5);                                 %Filter matrix
                                     KRNL_LMT = [2 2];                   %Group of pixels you're trying to find in next image
-                                    SRCH_LMT = [2 2];                   %Region
+                                    SRCH_LMT = [3 3];                   %Region
                                     POS = round(points(ind,:,indFrame));  %Origin of krnl and srch 
                                     [RHO]=corr2D(IX,IY,FILT,KRNL_LMT,SRCH_LMT,POS);
                                     
