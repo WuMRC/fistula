@@ -609,7 +609,7 @@ classdef dicomViewer < handle
             tool.handles.Tools.TrackAll = ...
                 uicontrol(tool.handles.Panels.ROItools,...
                 'Style','pushbutton',...
-                'String','Track All',...
+                'String','Track ROI',...
                 'Position',[buff, buff+14*widthSidePanel, 3.5*widthSidePanel, widthSidePanel],...
                 'TooltipString','Point Track Entire Region ');
             fun=@(hObject,evnt) pixelTrackAllCallback(hObject,evnt,tool);
@@ -625,32 +625,42 @@ classdef dicomViewer < handle
             fun=@(hObject,evnt) pixelStrainCallback(hObject,evnt,tool);
             set(tool.handles.Tools.Strain ,'Callback',fun)
             
+            %Create Wall Shear button
+            tool.handles.Tools.Shear = ...
+                uicontrol(tool.handles.Panels.ROItools,...
+                'Style','pushbutton',...
+                'String','Shear',...
+                'Position',[buff, buff+9*widthSidePanel, 3.5*widthSidePanel, widthSidePanel],...
+                'TooltipString','Find Wall Shear Rate in Region of Interest ');
+            fun=@(hObject,evnt) pixelShearCallback(hObject,evnt,tool);
+            set(tool.handles.Tools.Shear ,'Callback',fun)
+            
             %Create gray threshold edge detect button
             tool.handles.Tools.Edge = ...
                 uicontrol(tool.handles.Panels.ROItools,...
                 'Style','pushbutton',...
                 'String','Edge',...
-                'Position',[buff, buff+9*widthSidePanel, 3.5*widthSidePanel, widthSidePanel],...
+                'Position',[buff, buff+8*widthSidePanel, 3.5*widthSidePanel, widthSidePanel],...
                 'TooltipString','Find Edge of Vessel');
             fun=@(hObject,evnt) pixelEdgeCallback(hObject,evnt,tool);
             set(tool.handles.Tools.Edge ,'Callback',fun)
             
-            %Create Motion Vector button
-            tool.handles.Tools.Motion = ...
-                uicontrol(tool.handles.Panels.ROItools,...
-                'Style','pushbutton',...
-                'String','Motion',...
-                'Position',[buff, buff+8*widthSidePanel, 3.5*widthSidePanel, widthSidePanel],...
-                'TooltipString','Create Motion Vectors for pixels in ROI ');
-            fun=@(hObject,evnt) pixelMotionCallback(hObject,evnt,tool);
-            set(tool.handles.Tools.Motion ,'Callback',fun)
+%             %Create Motion Vector button
+%             tool.handles.Tools.Motion = ...
+%                 uicontrol(tool.handles.Panels.ROItools,...
+%                 'Style','pushbutton',...
+%                 'String','Motion',...
+%                 'Position',[buff, buff+8*widthSidePanel, 3.5*widthSidePanel, widthSidePanel],...
+%                 'TooltipString','Create Motion Vectors for pixels in Region of Interest ');
+%             fun=@(hObject,evnt) pixelMotionCallback(hObject,evnt,tool);
+%             set(tool.handles.Tools.Motion ,'Callback',fun)
                                 
             %Create Calibration Button
             tool.handles.Tools.Calibrate = ...
                 uicontrol(tool.handles.Panels.ROItools,...
                 'Style','pushbutton',...
                 'String','Calibrate',...
-                'Position',[buff, buff+20*widthSidePanel, 3.5*widthSidePanel, widthSidePanel],...
+                'Position',[buff, buff+19*widthSidePanel, 3.5*widthSidePanel, widthSidePanel],...
                 'TooltipString','Calibrate image pixels to cm ');
             fun = @(hObject,evnt) pixelCalibrateCallback(hObject,evnt,tool);
             set(tool.handles.Tools.Calibrate,'Callback',fun)
@@ -660,7 +670,7 @@ classdef dicomViewer < handle
                 uicontrol(tool.handles.Panels.ROItools,...
                 'Style','pushbutton',...
                 'String','Settings',...
-                'Position',[buff, buff+19*widthSidePanel, 3.5*widthSidePanel, widthSidePanel],...
+                'Position',[buff, buff+20*widthSidePanel, 3.5*widthSidePanel, widthSidePanel],...
                 'TooltipString','File Settings');
             fun = @(hObject,evnt) pixelSettingsCallback(hObject,evnt,tool);
             set(tool.handles.Tools.Settings,'Callback',fun)
@@ -686,7 +696,7 @@ classdef dicomViewer < handle
                 'String','Image Tools','BackgroundColor','k','ForegroundColor','w','FontWeight','bold',...
                 'Position',[buff, buff+6*widthSidePanel, 3.5*widthSidePanel, widthSidePanel]);        
             tool.handles.Tools.Analyze = uicontrol(tool.handles.Panels.ROItools,'Style','text',...
-                'String','Analyze','BackgroundColor','k','ForegroundColor','w','FontWeight','bold',...
+                'String','Analysis','BackgroundColor','k','ForegroundColor','w','FontWeight','bold',...
                 'Position',[buff, buff+11*widthSidePanel, 3.5*widthSidePanel, widthSidePanel]);        
             tool.handles.Tools.ImageTracking = uicontrol(tool.handles.Panels.ROItools,'Style','text',...
                 'String', 'Image Tracking','BackgroundColor','k','ForegroundColor','w','FontWeight','bold',...
@@ -1132,12 +1142,12 @@ classdef dicomViewer < handle
         
         function pixelSettingsCallback(hObject,evnt,tool)
             
-            prompt = {'cm/pixel calibration factor:', '% of pixels analyzed:','Frames for accumulated strain:'};
+            prompt = {'cm/pixel calibration factor:', '% of pixels analyzed (1-100%):','Frames for accumulated strain:'};
                     dlg_title = 'Settings';
                     num_lines = [1, 40; 1, 40; 1, 40];
                     cal = num2str(tool.calibration);
                     pixels = num2str(tool.pixelDensity);
-                    accFrames = '1,15'
+                    accFrames = '1,15';
                     default = {cal,pixels,'1,15'};
                     options.Resize='on';
                     options.WindowStyle='normal';
@@ -1196,7 +1206,7 @@ classdef dicomViewer < handle
                     
                     %Convert pixels to cm and percent
                     cm = tool.calibration;
-                    pointDistCm = pointDist./50;
+                    pointDistCm = pointDist.*cm;
                     pointDistPercent = pointDist.*100./max(max(pointDist));
                     pointDistTp = pointDistCm - min(pointDistCm);
                     pointDistTpPercent = pointDistPercent-min(pointDistPercent);
@@ -1393,11 +1403,8 @@ classdef dicomViewer < handle
 %                     disp(pos)
 %                     return;
                     
-                    % Get region of interest
-                    framenum = 1;
                     %Create grid of points on the image
                     
-                    tool.pixelDensity = 10; %percentage of pixels you want to track (between 0-100)
                     if tool.pixelDensity >100
                         tool.pixelDensity = 100;
                     elseif tool.pixelDensity <=0;
@@ -1536,6 +1543,46 @@ classdef dicomViewer < handle
                     totalDiff = sqrt(xDiff.^2 + yDiff.^2);
                     dicomViewer(totalDiff);
                end
+        end
+        
+        function pixelShearCallback(hObject,evnt,tool)
+            if ~isempty(tool.currentROI)                 
+                  if isvalid(tool.currentROI)
+                       if (isempty(tool.pointLog))
+                           msgbox('Please run pixel tracking first to get strain')
+                       else
+                           J = uint8(tool.I);
+                           dicomFrames = size(tool.I,3);
+                            points = tool.pointLog;
+                            pointsTracked = size(points,1);
+                            shear = zeros(size(J));
+                            % Create new image showing shear rate magnitudes
+                            h = waitbar(0,'Calculating shear rate...');
+                            for indFrame = 1:dicomFrames-1
+                                waitbar(indFrame/dicomFrames)
+                                for ind = 1:pointsTracked
+                                    IX = J(:,:,indFrame);                  %Frame 1
+                                    IY = J(:,:,indFrame+1);              %Frame 2
+                                    FILT = [1 1 1; 1 1 1; 1 1 1];        %Filter matrix
+                                    KRNL_LMT = [2 2];                   %Group of pixels you're trying to find in next image
+                                    SRCH_LMT = [2 2];                   %Region
+                                    POS = round(points(ind,:,indFrame));  %Origin of krnl and srch 
+                                    [RHO]=corr2D(IX,IY,FILT,KRNL_LMT,SRCH_LMT,POS);
+                                    
+                                    shear(POS(2)-2:POS(2)+2,POS(1)-2:POS(1)+2,indFrame) = max(max(RHO));
+                                end
+                            end
+                            close(h);
+                            dicomViewer(shear);                         
+                       end   
+                  else
+                       msgbox('Please select a region of interest');
+                       return;
+                  end
+            else
+                  msgbox('Please select a region of interest');
+                  return;  
+            end
         end
         
         function pixelEdgeCallback(hObject,evnt,tool)
