@@ -497,7 +497,7 @@ classdef dicomViewer < handle
                 uicontrol(tool.handles.Panels.Tools,...
                 'Style','popupmenu',...
                 'String',{'as single slice','as entire stack'},...
-                'Position',[lp, buff, 6*widthSidePanel, widthSidePanel]);
+                'Position',[lp+buff, buff, 6*widthSidePanel, widthSidePanel]);
             fun = @(hObject,evnt) saveImage(hObject,evnt,tool);
             set(tool.handles.Tools.Save,'Callback',fun)
             set(tool.handles.Tools.Save,'TooltipString','Save image as slice or entire stack')
@@ -1170,8 +1170,8 @@ classdef dicomViewer < handle
                     objectFrame = J(:,:,framenum);
                    
                     %Select Points to Track
-                    msgbox('Select two points to track, then hit "Enter"');
-                    close;
+                    uiwait(msgbox('Select two points to track, then hit "Enter"'));
+                    
                     figHandle = gcf;
                     [poiX, poiY] = getpts(figHandle);
 
@@ -1552,43 +1552,113 @@ classdef dicomViewer < handle
         end
         
         function pixelShearCallback(hObject,evnt,tool)
-            if ~isempty(tool.currentROI)                 
-                  if isvalid(tool.currentROI)
-                       if (isempty(tool.pointLog))
-                           msgbox('Please run pixel tracking first to get strain')
-                       else
+%             if ~isempty(tool.currentROI)                 
+%                   if isvalid(tool.currentROI)
+%                        if (isempty(tool.pointLog))
+%                            msgbox('Please run pixel tracking first to get strain')
+%                        else
                            J = uint8(tool.I);
                            dicomFrames = size(tool.I,3);
-                            points = tool.pointLog;
+%                             points = tool.pointLog;
+                    
+                            %Select Points to Track
+                            choice = questdlg('From which vessel edge do you want to calculate wall shear? (Click exit to choose the left edge)', ...
+                                'Select edge', 'Top', 'Bottom', 'Right','Top');
+                            disp(choice);
+                            if strcmp(choice,'')
+                                choice = 'Left';
+                            end
+                            uiwait(msgbox(['Select point on ' choice ' vessel edge, then hit "Enter"']));
+                            figHandle = gcf;
+                            [poiX, poiY] = getpts(figHandle);
+                            poiX = round(poiX);     poiY = round(poiY);
+                            point = [poiX, poiY];
+                                                     
+                            % Create object tracker
+                            tracker = vision.PointTracker('MaxBidirectionalError', 3);
+
+                            % Initialize object tracker
+                            framenum=1;
+                            objectFrame = J(:,:,framenum);
+                            initialize(tracker, point(:,:,1), objectFrame);
+
+                            % Show the points getting tracked
+                            while framenum <= dicomFrames
+                                 %Track the points     
+                                  frame =J(:,:,framenum);
+                                  [point, validity] = step(tracker, frame);
+                                  points(:,:,framenum) = point;
+                                  framenum = framenum + 1;
+                            end
+                            switch choice
+                                case 'Top'
+                                    voffset = 1;
+                                    hoffset = 0;
+                                case 'Bottom'
+                                    voffset = -1;
+                                    hoffset = 0;
+                                case 'Left'
+                                    voffset = 0;
+                                    hoffset = 1;
+                                case 'Right'
+                                    voffset = 0;
+                                    hoffset = -1;
+                            end
+                            for ind = 1:dicomFrames
+                                for count = 2:10
+                                    points(count,1,ind) = points(count-1,1,ind)+hoffset;
+                                    points(count,2,ind) = points(count-1,2,ind)+voffset;
+                                end
+                            end
+                            
                             pointsTracked = size(points,1);
-                            shear = ones(size(J));
+                            shear = J;
                             % Create new image showing shear rate magnitudes
-                            h = waitbar(0,'Calculating shear rate...');
+                            h = waitbar(0,'Calculating wall shear rate...');
                             for indFrame = 1:dicomFrames-1
                                 waitbar(indFrame/dicomFrames)
                                 for ind = 1:pointsTracked
                                     IX = J(:,:,indFrame);                  %Frame 1
                                     IY = J(:,:,indFrame+1);              %Frame 2
-                                    FILT = ones(5);                                 %Filter matrix
+                                    FILT = ones(5);                           %Filter matrix
                                     KRNL_LMT = [2 2];                   %Group of pixels you're trying to find in next image
-                                    SRCH_LMT = [3 3];                   %Region
-                                    POS = round(points(ind,:,indFrame));  %Origin of krnl and srch 
+                                    SRCH_LMT = [2 2];                   %Region
+                                    POS = round(points(ind,:,indFrame));  %Origin of krnl and srch
+                                    FLAGS = 'n';
                                     [RHO]=corr2D(IX,IY,FILT,KRNL_LMT,SRCH_LMT,POS);
-                                    
-                                    shear(POS(2)-2:POS(2)+2,POS(1)-2:POS(1)+2,indFrame) = max(max(RHO));
+                                    rho(ind,indFrame) = max(max(RHO));
+                                    %shear(POS(2)-2:POS(2)+2,POS(1)-2:POS(1)+2,indFrame) = max(max(RHO));
                                 end
                             end
                             close(h);
-                            imageViewer(shear);                         
-                       end   
-                  else
-                       msgbox('Please select a region of interest');
-                       return;
-                  end
-            else
-                  msgbox('Please select a region of interest');
-                  return;  
-            end
+                            %Normalize rho values to display as image
+                            %intensities
+                            for indFrame = 1:dicomFrames-1
+                                for ind = 1:pointsTracked
+                                    POS = round(points(ind,:,indFrame)); 
+                                    maxrho = max(max(rho));
+                                    newrho = 200.*rho./maxrho;
+                                    shear(POS(2)-1:POS(2)+1,POS(1),indFrame) = newrho(ind,indFrame);
+                                end
+                            end
+                            imageViewer(shear);
+                            for ind = 1:10
+                                wallshear(ind) = mean(rho(ind,:));
+                            end
+                            dist = 1:10;
+                            figure;
+                            plot(dist, wallshear)
+                            xlabel('Distance from wall'); ylabel('Wall Shear')
+                            title('Wall Shear')
+%                        end   
+%                   else
+%                        msgbox('Please select a region of interest');
+%                        return;
+%                   end
+%             else
+%                   msgbox('Please select a region of interest');
+%                   return;  
+%             end
         end
         
         function pixelEdgeCallback(hObject,evnt,tool)
