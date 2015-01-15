@@ -212,7 +212,7 @@ classdef dicomViewer < handle
             tool.currentROI = [];
             tool.calibration = .012;
             tool.pixelDensity = 10;
-            tool.accFrames = [1 15];
+            tool.accFrames = [1 size(tool.I,3)-1];
             tool.I = double(tool.I);
             tool.minima = 1;
             
@@ -1145,11 +1145,13 @@ classdef dicomViewer < handle
             
             prompt = {'cm/pixel calibration factor:', '% of pixels analyzed (1-100%):','Frame range for accumulated strain (separated by a comma):'};
                     dlg_title = 'Settings';
-                    num_lines = [1, 40; 1, 40; 1, 40];
+                    num_lines = [1, 60; 1, 60; 1, 60];
                     cal = num2str(tool.calibration);
                     pixels = num2str(tool.pixelDensity);
-                    accFrames = num2str(tool.accFrames);
-                    default = {cal,pixels,accFrames'};
+                    accRange = strcat([num2str((tool.accFrames(1))),',',num2str((tool.accFrames(2)))]);
+                    %accRange = '1,10';
+                    %disp(accRange); disp(size(accRange)); disp(cal); disp(size(cal)); disp(pixels);
+                    default = {cal,pixels,accRange};
                     options.Resize='on';
                     options.WindowStyle='normal';
                     answer = inputdlg(prompt,dlg_title,num_lines,default,options);
@@ -1227,7 +1229,7 @@ classdef dicomViewer < handle
                     tool.minima = tool.minima;
                     % Plot the tracked pixel movement in a switchable GUI
                     % Create and then hide the GUI as it is being constructed. 
-                    f = figure('Visible','off','Position',[360,500,475,350]); %Left bottom width height
+                    f = figure('Visible','off','Position',[360,500,525,350]); %Left bottom width height
 
                     % Construct the components. 
 
@@ -1239,6 +1241,10 @@ classdef dicomViewer < handle
                     hdrawrange = uicontrol('Style','pushbutton',... 
                         'String','Select Strain Range','Position',[150,320,150,25],...
                         'Callback',{@drawrange_button_Callback});
+                    
+%                     hrunstrain = uicontrol('Style','pushbutton',... 
+%                         'String','Display Accumulated Strain','Position',[325,320,170,25],...
+%                         'Callback',{@runstrain_button_Callback});
 
                     ha = axes('Units','pixels','Position',[25,25,425,270]); 
 
@@ -1294,8 +1300,14 @@ classdef dicomViewer < handle
                                 pos2 = wait(hmax);
                                 tool.accFrames = [round((pos1(1,1)+pos1(2,1))*sampleFreq/2) , round((pos2(1,1)+pos2(2,1))*sampleFreq/2)];
                                 msgbox(['Frame range set as: ' num2str(tool.accFrames(1)) '-' num2str(tool.accFrames(2))]);    
-                        end
-
+                         end
+                        
+%                          function runstrain_button_Callback(source,eventdata)
+%                                 if (isempty(tool.pointLog))
+%                                     pixelTrackAllCallback(hObject,evnt,tool);
+%                                 end
+%                          end
+                         
         end
      
         function pixelTrackAllCallback(hObject,evnt,tool)
@@ -1303,19 +1315,12 @@ classdef dicomViewer < handle
                     dicomFrames = size(tool.I,3);
                     newI = uint8(tool.I); 
                     J = uint8(tool.I);
-                    
                     if ~isempty(tool.currentROI)                 
                           if isvalid(tool.currentROI)
                                 pos = round(getPosition(tool.currentROI));
                           end
                     end
-                    
-%                     disp('tool.currentROI')
-%                     disp(pos)
-%                     return;
-                    
-                    %Create grid of points on the image
-                    
+                    %Create grid of points on the image                    
                     if tool.pixelDensity >100
                         tool.pixelDensity = 100;
                     elseif tool.pixelDensity <=0;
@@ -1382,66 +1387,37 @@ classdef dicomViewer < handle
                      plot(frames, quality)
                      xlabel('Frames'); ylabel('% of Points Tracked')
                      title('Tracking Quality')
-                    
-                                        
+                                                    
         end
         
         function pixelStrainCallback(hObject,evnt,tool)
-               tool.minima = zeros(2);
-                if (isempty(tool.pointLog))
+                 tool.pointLog = tool.pointLog;
+                 if (isempty(tool.pointLog))
                    msgbox('Please run pixel tracking first to get strain')
-               else
+                else
                    dicomFrames = size(tool.I,3);
                    choice = questdlg('Which type of strain would you like to display?', ...
-                        'Select strain type', 'Accumulated', 'Frame to Frame','Frame to Frame');
+                        'Select strain type', 'Accumulated','Frame to Frame','Frame to Frame');
                    switch choice
                        case 'Accumulated'
-                            % Total difference
-%                             minchoice= questdlg('How do you want to frames with minimum compression?', ...
-%                             'Select frame input method', 'Manual', 'Automatic','Automatic');
-%                             switch minchoice
-%                                 case 'Manual'
-%                                     prompt = {'Input frames of minimum compression (Ex: 1,31,64)'};
-%                                     dlg_title = 'Input';
-%                                     num_lines = 1;
-%                                     def = {'1'};
-%                                     answer = inputdlg(prompt,dlg_title,num_lines,def);
-%                                     tool.minima = str2double(answer);
-%                                     disp(tool.minima)
-%                                 case 'Automatic'
-%                                     msgbox('2 pixel tracker will run to find changes in BV diameter, then in graph click find minima, then set points')
-%                                     pixelTrack2Callback(hObject,evnt,tool);
-%                             end
-                           minNum = 1;
-                           for indFrames = 1:dicomFrames-1
-                                if max(tool.minima > 0)
-                                    minFrame = tool.minima(minNum);
-                                    if indFrames <= minFrame
-                                        frame = tool.pointLog(:,:,minFrame);
-                                    else
-                                        if minNum < length(tool.minima)
-                                            minNum = minNum + 1;
-                                        end
-                                            minFrame = tool.minima(minNum);
-                                            frame = tool.pointLog(:,:,minFrame);
-                                    end
-                                else
-                                    if indFrames == 1;
-                                        msgbox({'Minimum points not detected';'Calculating strain from first image'; 'Run 2 point tracker on vessel edge to find minimum points'})
-                                    end
-                                    frame = tool.pointLog(:,:,1);
-                                end
-                                pointLogDiff(:,:,indFrames) = tool.pointLog(:,:,indFrames) ...
-                                    - frame;     
-                            end
+                           startFrame = tool.accFrames(1);
+                           endFrame = tool.accFrames(2)-1;
+                           count = 1;
+                           for indFrames = startFrame:endFrame
+                                    pointLogDiff(:,:,count) = tool.pointLog(:,:,indFrames+1) ...
+                                    - tool.pointLog(:,:,startFrame); 
+                                    count = count+1;
+                           end
                        case 'Frame to Frame'
                             % Simple difference
+                            startFrame = 1;
+                            endFrame = dicomFrames-1;
                             for indFrames = 1:dicomFrames-1
                                 pointLogDiff(:,:,indFrames) = tool.pointLog(:,:,indFrames+1) ...
                                     - tool.pointLog(:,:,indFrames);
                             end
                     end
-                    %I don't know how accurate these 2 calculations
+                    %I don't know how right these 2 calculations
                     %are...I think they need to be reevaluated
                     pixelsX = size(tool.I,2); pixelsY = size(tool.I,1);
                     pixelsXtracked = round(pixelsX*tool.pixelDensity/100)+1;
@@ -1449,7 +1425,8 @@ classdef dicomViewer < handle
                     trackedPixels = pixelsXtracked*pixelsYtracked;
                     % Separate x and y differences for each point on the image
                     counter = 1;
-                    for indFrame = 1:dicomFrames-1
+                    range = endFrame-startFrame+1;
+                    for indFrame = 1:range
                         for ind = 1:pixelsYtracked:trackedPixels
                             xDiff(:,counter,indFrame) = pointLogDiff(ind:(ind+pixelsYtracked-1),1,indFrame);
                             yDiff(:,counter,indFrame) = pointLogDiff(ind:(ind+pixelsYtracked-1),2,indFrame);
@@ -1459,7 +1436,7 @@ classdef dicomViewer < handle
                     end
                     totalDiff = sqrt(xDiff.^2 + yDiff.^2);
                     imageViewer(totalDiff);
-               end
+                end
         end
         
         function pixelShearCallback(hObject,evnt,tool)
