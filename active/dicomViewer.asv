@@ -644,17 +644,17 @@ classdef dicomViewer < handle
 %             fun=@(hObject,evnt) pixelEdgeCallback(hObject,evnt,tool);
 %             set(tool.handles.Tools.Edge ,'Callback',fun)
 %             
-
-            %Create Wall Strain button
-            tool.handles.Tools.Wall = ...
+            
+            %Wall strain button
+            tool.handles.Tools.WStrain = ...
                 uicontrol(tool.handles.Panels.ROItools,...
                 'Style','pushbutton',...
                 'String','Wall Strain',...
                 'Position',[buff, buff+8*widthSidePanel, 3.5*widthSidePanel, widthSidePanel],...
-                'TooltipString','Find strain near the vessel wall');
-            fun=@(hObject,evnt) pixelWallCallback(hObject,evnt,tool);
-            set(tool.handles.Tools.Wall ,'Callback',fun)
-             
+                'TooltipString','Find the strain near the vessel wall');
+            fun=@(hObject,evnt) pixelWStrainCallback(hObject,evnt,tool);
+            set(tool.handles.Tools.WStrain ,'Callback',fun)
+            
 %             %Create Motion Vector button
 %             tool.handles.Tools.Motion = ...
 %                 uicontrol(tool.handles.Panels.ROItools,...
@@ -1547,7 +1547,7 @@ classdef dicomViewer < handle
 %             end
         end
         
-        function pixelWallCallback(hObject,evnt,tool)
+        function pixelWStrainCallback(hObject,evnt,tool)
             J = uint8(tool.I);
            dicomFrames = size(tool.I,3);
 
@@ -1581,7 +1581,7 @@ classdef dicomViewer < handle
             points(:,:,1) = point;
             distX(1) = points(2,1,1)-points(3,1,1);
             distY(1) = points(2,2,1)-points(3,2,1);
-            dist(1) = sqrt(distX(1)^2+distY(1)^2);
+            dist(1) = sqrt(distX(1)^2+distY(f1)^2);
 
             % Create object tracker
             tracker = vision.PointTracker('MaxBidirectionalError', 3);
