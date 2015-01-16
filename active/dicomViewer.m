@@ -1476,7 +1476,7 @@ classdef dicomViewer < handle
                             end
                             
                             slope = (poiY(2)-poiY(1))/(poiX(2)-poiX(1));
-                            shearPoints = 10;
+                            shearPoints = 5;
                             if abs(slope) >= 1.5
                                 voffset = 3;
                                 if poiY(1) > poiY(2)
@@ -1560,13 +1560,13 @@ classdef dicomViewer < handle
             
             slope = (poiY(2)-poiY(1))/(poiX(2)-poiX(1));
             if abs(slope) >= 1.5
-                voffset = 2;
+                voffset = 4;
                 if poiY(1) > poiY(2)
                     voffset = voffset * -1;
                 end
                 hoffset = voffset/slope;
             else
-                hoffset = 2;
+                hoffset = 4;
                 if poiX(1) > poiX(2)
                     hoffset = hoffset * -1;
                 end
