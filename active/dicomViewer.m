@@ -1559,7 +1559,6 @@ classdef dicomViewer < handle
             point = [poiX(1), poiY(1)];
             
             slope = (poiY(2)-poiY(1))/(poiX(2)-poiX(1));
-            WStrainPoints = 2;
             if abs(slope) >= 1.5
                 voffset = 2;
                 if poiY(1) > poiY(2)
@@ -1584,12 +1583,14 @@ classdef dicomViewer < handle
             dist(1) = sqrt(distX(1)^2+distY(1)^2);
 
             % Create object tracker
-            tracker = vision.PointTracker('MaxBidirectionalError', 3);
-
+            tracker = vision.PointTracker('MaxBidirectionalError', 1);
+            
             % Initialize object tracker
             framenum=1;
             objectFrame = J(:,:,framenum);
             initialize(tracker, point(:,:,1), objectFrame);
+            pointImage = insertMarker(objectFrame, points, '+', 'Color', 'white');
+            newI(:,:,1) = pointImage(:,:,1);
 
             % Show the points getting tracked
             while framenum < dicomFrames
@@ -1598,6 +1599,8 @@ classdef dicomViewer < handle
                   [point, validity] = step(tracker, frame);
                   framenum = framenum + 1;
                   points(:,:,framenum) = point;
+                  out = insertMarker(frame, point(validity, :), '+', 'Color', 'white');
+                  newI(:,:,framenum) = out(:,:,1);
                   distX(framenum) = points(2,1,framenum)-points(3,1,framenum);
                   distY(framenum) = points(2,2,framenum)-points(3,2,framenum);
                   dist(framenum) = sqrt(distX(framenum)^2+distY(framenum)^2);
@@ -1607,12 +1610,12 @@ classdef dicomViewer < handle
             for ind = 1:dicomFrames
                 strain(ind) = (dist(ind)-avgdist)/avgdist;
             end
+            imageViewer(newI);
             frame = 1:dicomFrames;
             figure;
             plot(frame, strain)
             xlabel('Distance from wall'); ylabel('Wall Strain')
-            title('Wall Strain')
-                        
+            title('Wall Strain')            
         end
         
         function pixelEdgeCallback(hObject,evnt,tool)
