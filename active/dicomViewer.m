@@ -114,7 +114,6 @@ classdef dicomViewer < handle
         calibration %Converts pixels to mm
         pointLog  %Log of all the points being tracked
         pixelDensity %Amount of pixels being tracked
-        minima %Minimum compressions of blood vessel
         accFrames % Frames used to find accumulated strain
     end
     
@@ -210,11 +209,10 @@ classdef dicomViewer < handle
             tool.handles.fig = heightHistogram;
             tool.handlesROI = [];
             tool.currentROI = [];
-            tool.calibration = .012;
+            tool.calibration = 1;
             tool.pixelDensity = 10;
             tool.accFrames = [1 size(tool.I,3)-1];
             tool.I = double(tool.I);
-            tool.minima = 1;
             
             %%
             % Create the panels and slider
@@ -1216,17 +1214,11 @@ classdef dicomViewer < handle
                   
                     sampleFreq = 16; %want to obtain this from dicom somehow
                     time = (1:dicomFrames)/sampleFreq;
-                    
-%                     figure;
-%                     plot(time, pointDistPercent)
-%                     xlabel('Time'); ylabel('Distance (%)')
-%                     title('Distance between 2 points')
-                    
+                       
                     imageViewer(newI);
                     
                     %Initialize global variables
                     h  = struct;
-                    tool.minima = tool.minima;
                     % Plot the tracked pixel movement in a switchable GUI
                     % Create and then hide the GUI as it is being constructed. 
                     f = figure('Visible','off','Position',[360,500,525,350]); %Left bottom width height
@@ -1243,7 +1235,7 @@ classdef dicomViewer < handle
                         'Callback',{@drawrange_button_Callback});
                     
 %                     hrunstrain = uicontrol('Style','pushbutton',... 
-%                         'String','Display Accumulated Strain','Position',[325,320,170,25],...
+%                         'String','Calculate Wall Strain','Position',[325,320,150,25],...
 %                         'Callback',{@runstrain_button_Callback});
 
                     ha = axes('Units','pixels','Position',[25,25,425,270]); 
@@ -1450,17 +1442,11 @@ classdef dicomViewer < handle
 %                             points = tool.pointLog;
                     
                             %Select Points to Track
-                            choice = questdlg('From which vessel edge do you want to calculate wall shear? (Click exit to choose the left edge)', ...
-                                'Select edge', 'Top', 'Bottom', 'Right','Top');
-                            disp(choice);
-                            if strcmp(choice,'')
-                                choice = 'Left';
-                            end
-                            uiwait(msgbox(['Select point on ' choice ' vessel edge, then hit "Enter"']));
+                            uiwait(msgbox(['Select 2 points, 1 on  the vessel edge, and 1 near the vessel center, then hit "Enter"']));
                             figHandle = gcf;
                             [poiX, poiY] = getpts(figHandle);
                             poiX = round(poiX);     poiY = round(poiY);
-                            point = [poiX, poiY];
+                            point = [poiX(1), poiY(1)];                       
                                                      
                             % Create object tracker
                             tracker = vision.PointTracker('MaxBidirectionalError', 3);
@@ -1478,22 +1464,24 @@ classdef dicomViewer < handle
                                   points(:,:,framenum) = point;
                                   framenum = framenum + 1;
                             end
-                            switch choice
-                                case 'Top'
-                                    voffset = 1;
-                                    hoffset = 0;
-                                case 'Bottom'
-                                    voffset = -1;
-                                    hoffset = 0;
-                                case 'Left'
-                                    voffset = 0;
-                                    hoffset = 1;
-                                case 'Right'
-                                    voffset = 0;
-                                    hoffset = -1;
+                            
+                            slope = (poiY(2)-poiY(1))/(poiX(2)-poiX(1));
+                            shearPoints = 5;
+                            if abs(slope) >= 1.5
+                                voffset = 3;
+                                if poiY(1) > poiY(2)
+                                    voffset = voffset * -1;
+                                end
+                                hoffset = voffset/slope;
+                            else
+                                hoffset = 3;
+                                if poiX(1) > poiX(2)
+                                    hoffset = hoffset * -1;
+                                end
+                                voffset = hoffset*slope;
                             end
                             for ind = 1:dicomFrames
-                                for count = 2:10
+                                for count = 2:shearPoints
                                     points(count,1,ind) = points(count-1,1,ind)+hoffset;
                                     points(count,2,ind) = points(count-1,2,ind)+voffset;
                                 end
@@ -1526,14 +1514,14 @@ classdef dicomViewer < handle
                                     POS = round(points(ind,:,indFrame)); 
                                     maxrho = max(max(rho));
                                     newrho = 200.*rho./maxrho;
-                                    shear(POS(2)-1:POS(2)+1,POS(1),indFrame) = newrho(ind,indFrame);
+                                    shear(POS(2)-1:POS(2)+1,POS(1)-1:POS(1)+1,indFrame) = newrho(ind,indFrame);
                                 end
                             end
                             imageViewer(shear);
-                            for ind = 1:10
+                            for ind = 1:shearPoints
                                 wallshear(ind) = mean(rho(ind,:));
                             end
-                            dist = 1:10;
+                            dist = 1:shearPoints;
                             figure;
                             plot(dist, wallshear)
                             xlabel('Distance from wall'); ylabel('Wall Shear')
