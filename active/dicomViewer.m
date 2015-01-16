@@ -634,27 +634,16 @@ classdef dicomViewer < handle
             fun=@(hObject,evnt) pixelShearCallback(hObject,evnt,tool);
             set(tool.handles.Tools.Shear ,'Callback',fun)
             
-%             %Create gray threshold edge detect button
-%             tool.handles.Tools.Edge = ...
-%                 uicontrol(tool.handles.Panels.ROItools,...
-%                 'Style','pushbutton',...
-%                 'String','Edge',...
-%                 'Position',[buff, buff+8*widthSidePanel, 3.5*widthSidePanel, widthSidePanel],...
-%                 'TooltipString','Find Edge of Vessel');
-%             fun=@(hObject,evnt) pixelEdgeCallback(hObject,evnt,tool);
-%             set(tool.handles.Tools.Edge ,'Callback',fun)
-%             
-
-            %Create Wall Strain button
-            tool.handles.Tools.Wall = ...
+            %Create gray threshold edge detect button
+            tool.handles.Tools.Edge = ...
                 uicontrol(tool.handles.Panels.ROItools,...
                 'Style','pushbutton',...
-                'String','Wall Strain',...
+                'String','Edge',...
                 'Position',[buff, buff+8*widthSidePanel, 3.5*widthSidePanel, widthSidePanel],...
-                'TooltipString','Find strain near the vessel wall');
-            fun=@(hObject,evnt) pixelWallCallback(hObject,evnt,tool);
-            set(tool.handles.Tools.Wall ,'Callback',fun)
-             
+                'TooltipString','Find Edge of Vessel');
+            fun=@(hObject,evnt) pixelEdgeCallback(hObject,evnt,tool);
+            set(tool.handles.Tools.Edge ,'Callback',fun)
+            
 %             %Create Motion Vector button
 %             tool.handles.Tools.Motion = ...
 %                 uicontrol(tool.handles.Panels.ROItools,...
@@ -1450,6 +1439,7 @@ classdef dicomViewer < handle
 %                        else
                            J = uint8(tool.I);
                            dicomFrames = size(tool.I,3);
+%                             points = tool.pointLog;
                     
                             %Select Points to Track
                             uiwait(msgbox(['Select 2 points, 1 on  the vessel edge, and 1 near the vessel center, then hit "Enter"']));
@@ -1476,7 +1466,7 @@ classdef dicomViewer < handle
                             end
                             
                             slope = (poiY(2)-poiY(1))/(poiX(2)-poiX(1));
-                            shearPoints = 10;
+                            shearPoints = 5;
                             if abs(slope) >= 1.5
                                 voffset = 3;
                                 if poiY(1) > poiY(2)
@@ -1545,74 +1535,6 @@ classdef dicomViewer < handle
 %                   msgbox('Please select a region of interest');
 %                   return;  
 %             end
-        end
-        
-        function pixelWallCallback(hObject,evnt,tool)
-            J = uint8(tool.I);
-           dicomFrames = size(tool.I,3);
-
-            %Select Points to Track
-            uiwait(msgbox(['Select 2 points, 1 on  the vessel edge, and 1 near the vessel center, then hit "Enter"']));
-            figHandle = gcf;
-            [poiX, poiY] = getpts(figHandle);
-            poiX = round(poiX);     poiY = round(poiY);
-            point = [poiX(1), poiY(1)];
-            
-            slope = (poiY(2)-poiY(1))/(poiX(2)-poiX(1));
-            WStrainPoints = 2;
-            if abs(slope) >= 1.5
-                voffset = 2;
-                if poiY(1) > poiY(2)
-                    voffset = voffset * -1;
-                end
-                hoffset = voffset/slope;
-            else
-                hoffset = 2;
-                if poiX(1) > poiX(2)
-                    hoffset = hoffset * -1;
-                end
-                voffset = hoffset*slope;
-            end
-            point(2,1) = point(1,1)+hoffset;
-            point(2,2) = point(1,2)+voffset;
-            point(3,1) = point(1,1)-hoffset;
-            point(3,2) = point(1,2)-voffset;
-            
-            points(:,:,1) = point;
-            distX(1) = points(2,1,1)-points(3,1,1);
-            distY(1) = points(2,2,1)-points(3,2,1);
-            dist(1) = sqrt(distX(1)^2+distY(1)^2);
-
-            % Create object tracker
-            tracker = vision.PointTracker('MaxBidirectionalError', 3);
-
-            % Initialize object tracker
-            framenum=1;
-            objectFrame = J(:,:,framenum);
-            initialize(tracker, point(:,:,1), objectFrame);
-
-            % Show the points getting tracked
-            while framenum < dicomFrames
-                 %Track the points     
-                  frame =J(:,:,framenum);
-                  [point, validity] = step(tracker, frame);
-                  framenum = framenum + 1;
-                  points(:,:,framenum) = point;
-                  distX(framenum) = points(2,1,framenum)-points(3,1,framenum);
-                  distY(framenum) = points(2,2,framenum)-points(3,2,framenum);
-                  dist(framenum) = sqrt(distX(framenum)^2+distY(framenum)^2);
-            end
-
-            avgdist = mean(dist);
-            for ind = 1:dicomFrames
-                strain(ind) = (dist(ind)-avgdist)/avgdist;
-            end
-            frame = 1:dicomFrames;
-            figure;
-            plot(frame, strain)
-            xlabel('Distance from wall'); ylabel('Wall Strain')
-            title('Wall Strain')
-                        
         end
         
         function pixelEdgeCallback(hObject,evnt,tool)
