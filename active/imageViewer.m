@@ -206,7 +206,7 @@ classdef imageViewer < handle
             tool.handles.fig = heightHistogram;
             tool.handlesROI = [];
             tool.currentROI = [];
-
+            tool.I = double(tool.I);
             
             %%
             % Create the panels and slider
