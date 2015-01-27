@@ -1118,7 +1118,9 @@ pos=pos(1,1:2);
 Xlim=get(tool.handles.Axes,'Xlim');
 Ylim=get(tool.handles.Axes,'Ylim');
 n=round(get(tool.handles.Slider,'value'));
-
+if n == 0
+    n = 1;
+end
 if pos(1)>0 && pos(1)<=size(tool.I,2) && pos(1)>=Xlim(1) && pos(1) <=Xlim(2) && pos(2)>0 && pos(2)<=size(tool.I,1) && pos(2)>=Ylim(1) && pos(2) <=Ylim(2)
     set(tool.handles.Info,'String',['(' num2str(pos(1)) ',' num2str(pos(2)) ') ' num2str(tool.I(pos(2),pos(1),n))])
 else

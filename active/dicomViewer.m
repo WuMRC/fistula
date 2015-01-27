@@ -113,6 +113,7 @@ classdef dicomViewer < handle
         centers     %list of bin centers for histogram
         calibration %Converts pixels to mm
         pointLog  %Log of all the points being tracked
+        pointLog2 %Log points for the 2 point tracker
         pixelDensity %Amount of pixels being tracked
         accFrames % Frames used to find accumulated strain
     end
@@ -1200,7 +1201,7 @@ classdef dicomViewer < handle
 
                     poiX = round(poiX);     poiY = round(poiY);
                     nPoints = size(poiX,1);
-                    tool.pointLog = zeros(nPoints, 2, dicomFrames);
+                    tool.pointLog2 = zeros(nPoints, 2, dicomFrames);
                     points = [poiX, poiY];
                     pointImage = insertMarker(objectFrame, points, '+', 'Color', 'white');
                     newI(:,:,1) = pointImage(:,:,1);
@@ -1217,12 +1218,12 @@ classdef dicomViewer < handle
                          %Track the points     
                           frame =J(:,:,framenum);
                           [points, validity] = step(tracker, frame);
-                          tool.pointLog(:,:,framenum) = points;
+                          tool.pointLog2(:,:,framenum) = points;
                           out = insertMarker(frame, points(validity, :), '+', 'Color', 'white');
                           newI(:,:,framenum) = out(:,:,1);
 
                           %Compute the distance between the 2 points
-                          pointDist(framenum) = sqrt ((tool.pointLog(1,1,framenum) - tool.pointLog(2,1,framenum))^2+(tool.pointLog(1,2,framenum) - tool.pointLog(2,2,framenum))^2);
+                          pointDist(framenum) = sqrt ((tool.pointLog2(1,1,framenum) - tool.pointLog2(2,1,framenum))^2+(tool.pointLog2(1,2,framenum) - tool.pointLog2(2,2,framenum))^2);
 
                           framenum = framenum + 1;
                     end
@@ -1449,7 +1450,10 @@ classdef dicomViewer < handle
                         counter = 1;
                     end
                     totalDiff = sqrt(xDiff.^2 + yDiff.^2);
-                    imageViewer(imadjust(totalDiff));
+                    for ind =1:range
+                        totalDiff(:,:,ind) = imadjust(totalDiff(:,:,ind));
+                    end
+                    imageViewer(totalDiff);
                 end
         end
         
@@ -1459,9 +1463,11 @@ classdef dicomViewer < handle
 %                        if (isempty(tool.pointLog))
 %                            msgbox('Please run pixel tracking first to get strain')
 %                        else
-                           J = uint8(imadjust(tool.I));
-                           dicomFrames = size(tool.I,3);
-                    
+                          
+                            dicomFrames = size(tool.I,3);
+                            for ind = 1:dicomFrames
+                                 J = uint8(imadjust(tool.I(:,:,ind)));
+                            end
                             %Select Points to Track
                             uiwait(msgbox(['Select 2 points, 1 on  the vessel edge, and 1 near the vessel center, then hit "Enter"']));
                             figHandle = gcf;
