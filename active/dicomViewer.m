@@ -124,7 +124,7 @@ classdef dicomViewer < handle
             %Check the inputs and set things appropriately
             switch nargin
                 case 0  %tool = dicomViewer()
-                    [fileName, filePath] = uigetfile('*.DCM;*.dcm;*.mat', ...
+                    [fileName, filePath] = uigetfile('*.DCM;*.dcm;*.mat;*', ...
                         'Choose DICOM images to import', pwd, ...
                         'MultiSelect', 'off');
                     if filePath(1) == 0
@@ -133,7 +133,7 @@ classdef dicomViewer < handle
                     else
                         disp(['User selected: ', fullfile(fileName)]);
                         [~, ~, ext] = fileparts(fileName);
-                        if strcmp(ext,'.DCM') || strcmp(ext,'.dcm')
+                        if strcmp(ext,'.DCM') || strcmp(ext,'.dcm') || strcmp(ext,'')
                             tool.I = permute(dicomread(fileName),[1, 2, 4, 3]);
                         else
                             load( fileName);
@@ -463,7 +463,7 @@ classdef dicomViewer < handle
             fun = @(hObject,evnt) toggleGrid(hObject,evnt,tool);
             set(tool.handles.Tools.Grid,'Callback',fun)
             set(tool.handles.Tools.Grid,'TooltipString','Toggle Gridlines')
-            lp = lp+2.5*widthSidePanel;
+            lp = lp+3*widthSidePanel;
             
             % Create colormap pulldown menu
             mapNames = ...
@@ -479,7 +479,7 @@ classdef dicomViewer < handle
             fun = @(hObject,evnt) changeColormap(hObject,evnt,tool);
             set(tool.handles.Tools.Color,'Callback',fun)
             set(tool.handles.Tools.Color,'TooltipString','Select a colormap')
-            lp = lp + 4*widthSidePanel;
+            lp = lp + 3*widthSidePanel;
             
             %% BUTTONS
             % Create save button
@@ -500,7 +500,18 @@ classdef dicomViewer < handle
             fun = @(hObject,evnt) saveImage(hObject,evnt,tool);
             set(tool.handles.Tools.Save,'Callback',fun)
             set(tool.handles.Tools.Save,'TooltipString','Save image as slice or entire stack')
+            lp = lp+6.5*widthSidePanel;
             
+             % Export button
+            tool.handles.Tools.Export = ...
+                uicontrol(tool.handles.Panels.Tools,...
+                'Style','pushbutton',...
+                'String','Export Data',...
+                'Position', [lp+widthSidePanel, buff, 4*widthSidePanel, widthSidePanel],...
+                'TooltipString','Export Data To Excel');
+            fun = @(hObject,evnt) exportDataCallback(hObject,evnt,tool);
+            set(tool.handles.Tools.Export,'Callback',fun)
+
             % Create Circle ROI button
             tool.handles.Tools.CircleROI = ...
                 uicontrol(tool.handles.Panels.ROItools,...
@@ -1438,7 +1449,7 @@ classdef dicomViewer < handle
                         counter = 1;
                     end
                     totalDiff = sqrt(xDiff.^2 + yDiff.^2);
-                    imageViewer(totalDiff);
+                    imageViewer(imadjust(totalDiff));
                 end
         end
         
@@ -1448,7 +1459,7 @@ classdef dicomViewer < handle
 %                        if (isempty(tool.pointLog))
 %                            msgbox('Please run pixel tracking first to get strain')
 %                        else
-                           J = uint8(tool.I);
+                           J = uint8(imadjust(tool.I));
                            dicomFrames = size(tool.I,3);
                     
                             %Select Points to Track
@@ -1548,6 +1559,7 @@ classdef dicomViewer < handle
         end
         
         function pixelWallCallback(hObject,evnt,tool)
+            %Wall Strain
             J = uint8(tool.I);
            dicomFrames = size(tool.I,3);
 
@@ -1791,7 +1803,9 @@ pos=pos(1,1:2);
 Xlim=get(tool.handles.Axes,'Xlim');
 Ylim=get(tool.handles.Axes,'Ylim');
 n=round(get(tool.handles.Slider,'value'));
-
+if n == 0
+    n = 1;
+end
 if pos(1)>0 && pos(1)<=size(tool.I,2) && pos(1)>=Xlim(1) && pos(1) <=Xlim(2) && pos(2)>0 && pos(2)<=size(tool.I,1) && pos(2)>=Ylim(1) && pos(2) <=Ylim(2)
     set(tool.handles.Info,'String',['(' num2str(pos(1)) ',' num2str(pos(2)) ') ' num2str(tool.I(pos(2),pos(1),n))])
 else
@@ -1893,11 +1907,11 @@ switch get(tool.handles.Tools.SaveOptions,'value')
         else
             imwrite(I,cmap,[PathName FileName])
         end
-    case 2
+    case 2 %Save entire dicom stack
         lims=get(tool.handles.Axes,'CLim');
         [FileName,PathName] = uiputfile({'*.dcm';'*.tif'},'Save Image Stack');
         [~, ~, ext] = fileparts(FileName);
-        disp(FileName)
+
         if FileName == 0
         else
             if strcmp(ext,'.tif') || strcmp(ext,'.TIF')
@@ -1910,6 +1924,41 @@ switch get(tool.handles.Tools.SaveOptions,'value')
             end
         end
 end
+end
+
+function exportDataCallback(hObject,evnt,tool)
+    
+    f = figure('Visible','off');
+    ax = axes('Units','pixels');
+    
+    % Create pop-up menu
+    popup = uicontrol('Style', 'popup',...
+           'String', {'parula','jet','hsv','hot','cool','gray'},...
+           'Position', [20 340 100 50],...
+           'Callback', @setmap);
+     % Create push button
+    ok = uicontrol('Style', 'pushbutton', 'String', 'Ok',...
+        'Position', [20 20 50 20],...
+        'Callback', 'cla');
+    
+    cancel = uicontrol('Style', 'pushbutton', 'String', 'Cancel',...
+        'Position', [90 20 50 20],...
+        'Callback', @finished);
+    
+    f.Visible = 'on';
+    
+    function finished(source,callbackdata)
+          ans = source.String;
+          if strcmp(ans,'Ok')
+          elseif strcmp(ans,'Cancel')
+          else
+          end
+    
+    end
+    lims=get(tool.handles.Axes,'CLim');
+    [FileName,PathName] = uiputfile({'*.txt';'*.csv'},'Export Data');
+    [~, ~, ext] = fileparts(FileName);
+        
 end
 
 function ShowHistogram(hObject,evnt,tool,w,h)
