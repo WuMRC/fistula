@@ -88,6 +88,34 @@ rho_num=zeros(2*syl+1,2*sxl+1);		% Complex Not normalized
 
 % Compute with filtering
 % disp('Computing...')
+for fr=(-fyl):fyl
+  for fc=(-fxl):fxl
+
+    % Get X & compute things exclusive to X
+    X=IX(index_y+fr,index_x+fc);
+    X=X-mean(X(:));
+    XX=X.*conj(X);
+    XP = sum(sum(XX));
+    
+    % Search
+    for sr=(-syl):syl
+      for sc=(-sxl):sxl
+	Y=IY(index_y+sr+fr,index_x+sc+fc);
+	Y=Y-mean(Y(:));
+	
+	YY= Y.*conj(Y);
+	YP = sum(sum(YY));
+
+	XY= X.*conj(Y);
+	
+	rho_1c = sum(sum(XY))/sqrt(XP * YP);
+	rho_c(sr+syl+1,sc+sxl+1) = rho_c(sr+syl+1,sc+sxl+1) + ...
+	    rho_1c * filt(fr+fyl+1,fc+fxl+1);
+	
+      end
+    end
+  end
+end
 
 end
 
