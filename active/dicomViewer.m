@@ -1201,6 +1201,11 @@ classdef dicomViewer < handle
 
                     poiX = round(poiX);     poiY = round(poiY);
                     nPoints = size(poiX,1);
+                   
+                    if  nPoints  ~= 2
+                        warndlg('Please select only 2 points. Exiting function', 'Warning');
+                        return;
+                    end
                     tool.pointLog2 = zeros(nPoints, 2, dicomFrames);
                     points = [poiX, poiY];
                     pointImage = insertMarker(objectFrame, points, '+', 'Color', 'white');
@@ -1464,17 +1469,19 @@ classdef dicomViewer < handle
 %                            msgbox('Please run pixel tracking first to get strain')
 %                        else
                           
-                            dicomFrames = size(tool.I,3);
-                            for ind = 1:dicomFrames
-                                 J = uint8(imadjust(tool.I(:,:,ind)));
-                            end
+                            J = uint8(tool.I);
+                            dicomFrames = size(J,3);
                             %Select Points to Track
                             uiwait(msgbox(['Select 2 points, 1 on  the vessel edge, and 1 near the vessel center, then hit "Enter"']));
                             figHandle = gcf;
                             [poiX, poiY] = getpts(figHandle);
                             poiX = round(poiX);     poiY = round(poiY);
                             point = [poiX(1), poiY(1)];                       
-                                                     
+                            nPoints = size(poiX,1);
+                            if  nPoints  ~= 2
+                                warndlg('Please select only 2 points. Exiting function', 'Warning');
+                                return;
+                            end
                             % Create object tracker
                             tracker = vision.PointTracker('MaxBidirectionalError', 3);
 
@@ -1527,10 +1534,10 @@ classdef dicomViewer < handle
                                     KRNL_LMT = [2 2];                   %Group of pixels you're trying to find in next image
                                     SRCH_LMT = [2 2];                   %Region
                                     POS = round(points(ind,:,indFrame));  %Origin of krnl and srch
-                                    FLAGS = 'n';
                                     [RHO]=corr2D(IX,IY,FILT,KRNL_LMT,SRCH_LMT,POS);
-                                    rho(ind,indFrame) = max(max(RHO));
-                                    %shear(POS(2)-2:POS(2)+2,POS(1)-2:POS(1)+2,indFrame) = max(max(RHO));
+                                    rho(ind,indFrame) = mean(mean(RHO));
+                                    rho2(ind,indFrame) = max(max(RHO));
+                                    shear(POS(2)-2:POS(2)+2,POS(1)-2:POS(1)+2,indFrame) = max(max(RHO));
                                 end
                             end
                             close(h);
@@ -1547,11 +1554,22 @@ classdef dicomViewer < handle
                             imageViewer(shear);
                             for ind = 1:shearPoints
                                 wallshear(ind) = mean(rho(ind,:));
+                                wallshear2(ind) = mean(rho2(ind,:));
                             end
-                            dist = 1:shearPoints;
+                            
+                           
+                            time = 1:dicomFrames-1;
+                            z1 = rho(1,:); z2=rho(2,:); z3=rho(3,:); z4 = rho(4,:); z5 = rho(5,:);
                             figure;
-                            plot(dist, wallshear)
-                            xlabel('Distance from wall'); ylabel('Wall Shear')
+                            d1(1:dicomFrames-1) = 1; d2(1:dicomFrames-1) = 2; d3(1:dicomFrames-1) = 3;
+                            d4(1:dicomFrames-1) = 4; d5(1:dicomFrames-1) = 5;
+                            plot3(d1,time,z1,d2,time,z2,d3,time,z3,d4,time,z4,d5,time,z5);
+                            %surf(rho);
+                            xlabel('Time'); ylabel('Distance from Wall'); zlabel('Wall Shear');
+                            figure;
+                            dist = 1:shearPoints;
+                            plot(dist, wallshear,dist,wallshear2)
+                            xlabel('Distance from Wall'); ylabel('Wall Shear'); 
                             title('Wall Shear')
 %                        end   
 %                   else
