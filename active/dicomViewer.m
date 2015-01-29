@@ -116,6 +116,7 @@ classdef dicomViewer < handle
         pointLog2 %Log points for the 2 point tracker
         pixelDensity %Amount of pixels being tracked
         accFrames % Frames used to find accumulated strain
+        bp %Mean Arterial blood pressure
     end
     
     methods
@@ -213,6 +214,7 @@ classdef dicomViewer < handle
             tool.calibration = 1;
             tool.pixelDensity = 10;
             tool.accFrames = [1 size(tool.I,3)-1];
+            tool.bp = 90;
             tool.I = double(tool.I);
             
             %%
@@ -610,21 +612,21 @@ classdef dicomViewer < handle
             tool.handles.Tools.Track2 = ...
                 uicontrol(tool.handles.Panels.ROItools,...
                 'Style','pushbutton',...
-                'String','2 Points',...
-                'Position',[buff, buff+13*widthSidePanel, 3.5*widthSidePanel, widthSidePanel],...
+                'String','Pulsatility',...
+                'Position',[buff, buff+11*widthSidePanel, 3.5*widthSidePanel, widthSidePanel],...
                 'TooltipString','Track 2 Points in the Image ');
             fun=@(hObject,evnt) pixelTrack2Callback(hObject,evnt,tool);
             set(tool.handles.Tools.Track2 ,'Callback',fun)
             
-            %Create entire frame tracking button
-            tool.handles.Tools.TrackAll = ...
-                uicontrol(tool.handles.Panels.ROItools,...
-                'Style','pushbutton',...
-                'String','All',...
-                'Position',[buff, buff+14*widthSidePanel, 3.5*widthSidePanel, widthSidePanel],...
-                'TooltipString','Point Track Entire Region ');
-            fun=@(hObject,evnt) pixelTrackAllCallback(hObject,evnt,tool);
-            set(tool.handles.Tools.TrackAll ,'Callback',fun)
+%             %Create entire frame tracking button
+%             tool.handles.Tools.TrackAll = ...
+%                 uicontrol(tool.handles.Panels.ROItools,...
+%                 'Style','pushbutton',...
+%                 'String','All',...
+%                 'Position',[buff, buff+11*widthSidePanel, 3.5*widthSidePanel, widthSidePanel],...
+%                 'TooltipString','Point Track Entire Region ');
+%             fun=@(hObject,evnt) pixelTrackAllCallback(hObject,evnt,tool);
+%             set(tool.handles.Tools.TrackAll ,'Callback',fun)
             
             %Create Strain button
             tool.handles.Tools.Strain = ...
@@ -682,7 +684,7 @@ classdef dicomViewer < handle
                 uicontrol(tool.handles.Panels.ROItools,...
                 'Style','pushbutton',...
                 'String','Calibrate',...
-                'Position',[buff, buff+19*widthSidePanel, 3.5*widthSidePanel, widthSidePanel],...
+                'Position',[buff, buff+15*widthSidePanel, 3.5*widthSidePanel, widthSidePanel],...
                 'TooltipString','Calibrate image pixels to cm ');
             fun = @(hObject,evnt) pixelCalibrateCallback(hObject,evnt,tool);
             set(tool.handles.Tools.Calibrate,'Callback',fun)
@@ -692,7 +694,7 @@ classdef dicomViewer < handle
                 uicontrol(tool.handles.Panels.ROItools,...
                 'Style','pushbutton',...
                 'String','Settings',...
-                'Position',[buff, buff+20*widthSidePanel, 3.5*widthSidePanel, widthSidePanel],...
+                'Position',[buff, buff+16*widthSidePanel, 3.5*widthSidePanel, widthSidePanel],...
                 'TooltipString','File Settings');
             fun = @(hObject,evnt) pixelSettingsCallback(hObject,evnt,tool);
             set(tool.handles.Tools.Settings,'Callback',fun)
@@ -702,7 +704,7 @@ classdef dicomViewer < handle
                 uicontrol(tool.handles.Panels.ROItools,...
                 'Style','pushbutton',...
                 'String','Help',...
-                'Position',[buff, buff+18*widthSidePanel, 3.5*widthSidePanel, widthSidePanel],...
+                'Position',[buff, buff+14*widthSidePanel, 3.5*widthSidePanel, widthSidePanel],...
                 'TooltipString','Help with dicomViewer');
             fun = @(hObject,evnt) displayHelp(hObject,evnt,tool);
             set(tool.handles.Tools.Help,'Callback',fun)
@@ -710,7 +712,7 @@ classdef dicomViewer < handle
              %Create text boxes for user guidance
              tool.handles.Tools.SetUp = uicontrol(tool.handles.Panels.ROItools,'Style','text',...
                 'String','Set Up','BackgroundColor','k','ForegroundColor','w','FontWeight','bold',...
-                'Position',[buff, buff+21*widthSidePanel, 3.5*widthSidePanel, widthSidePanel]);
+                'Position',[buff, buff+17*widthSidePanel, 3.5*widthSidePanel, widthSidePanel]);
             tool.handles.Tools.ROI = uicontrol(tool.handles.Panels.ROItools,'Style','text',...
                 'String','ROI Tools','BackgroundColor','k','ForegroundColor','w','FontWeight','bold',...
                 'Position',[buff, buff+3*widthSidePanel, 3.5*widthSidePanel, 1*widthSidePanel]);
@@ -719,10 +721,10 @@ classdef dicomViewer < handle
                 'Position',[buff, buff+6*widthSidePanel, 3.5*widthSidePanel, widthSidePanel]);        
             tool.handles.Tools.Analyze = uicontrol(tool.handles.Panels.ROItools,'Style','text',...
                 'String','Analysis','BackgroundColor','k','ForegroundColor','w','FontWeight','bold',...
-                'Position',[buff, buff+11*widthSidePanel, 3.5*widthSidePanel, widthSidePanel]);        
-            tool.handles.Tools.ImageTracking = uicontrol(tool.handles.Panels.ROItools,'Style','text',...
-                'String', 'Image Tracking','BackgroundColor','k','ForegroundColor','w','FontWeight','bold',...
-                'Position',[buff, buff+15*widthSidePanel, 3.5*widthSidePanel, 2*widthSidePanel]);
+                'Position',[buff, buff+12*widthSidePanel, 3.5*widthSidePanel, widthSidePanel]);        
+%             tool.handles.Tools.ImageTracking = uicontrol(tool.handles.Panels.ROItools,'Style','text',...
+%                 'String', 'Image Tracking','BackgroundColor','k','ForegroundColor','w','FontWeight','bold',...
+%                 'Position',[buff, buff+15*widthSidePanel, 3.5*widthSidePanel, 2*widthSidePanel]);
             
             % Set font size of all the tool objects
             set(cell2mat(struct2cell(tool.handles.Tools)),...
@@ -1164,15 +1166,16 @@ classdef dicomViewer < handle
         
         function pixelSettingsCallback(hObject,evnt,tool)
             
-            prompt = {'cm/pixel calibration factor:', '% of pixels analyzed (1-100%):','Frame range for accumulated strain (separated by a comma):'};
+            prompt = {'cm/pixel calibration factor:', '% of pixels analyzed (1-100%):','Frame range for accumulated strain (separated by a comma):','Mean Arterial Blood Pressure (mmHg)'};
                     dlg_title = 'Settings';
-                    num_lines = [1, 60; 1, 60; 1, 60];
+                    num_lines = [1, 60; 1, 60; 1, 60; 1, 60];
                     cal = num2str(tool.calibration);
                     pixels = num2str(tool.pixelDensity);
                     accRange = strcat([num2str((tool.accFrames(1))),',',num2str((tool.accFrames(2)))]);
+                    bloodp = num2str(tool.bp);
                     %accRange = '1,10';
                     %disp(accRange); disp(size(accRange)); disp(cal); disp(size(cal)); disp(pixels);
-                    default = {cal,pixels,accRange};
+                    default = {cal,pixels,accRange,bloodp};
                     options.Resize='on';
                     options.WindowStyle='normal';
                     answer = inputdlg(prompt,dlg_title,num_lines,default,options);
@@ -1180,6 +1183,7 @@ classdef dicomViewer < handle
                         tool.calibration = str2double(answer{1,1});
                         tool.pixelDensity = str2double(answer{2,1});
                         tool.accFrames = str2num(answer{3,1});
+                        tool.bp = str2num(answer{4,1});
                     end
             
         end
@@ -1413,7 +1417,7 @@ classdef dicomViewer < handle
         function pixelStrainCallback(hObject,evnt,tool)
                  tool.pointLog = tool.pointLog;
                  if (isempty(tool.pointLog))
-                   msgbox('Please run pixel tracking first to get strain')
+                   TrackAll(tool);
                 else
                    dicomFrames = size(tool.I,3);
                    choice = questdlg('Which type of strain would you like to display?', ...
@@ -1459,7 +1463,87 @@ classdef dicomViewer < handle
                         totalDiff(:,:,ind) = imadjust(totalDiff(:,:,ind));
                     end
                     imageViewer(totalDiff);
-                end
+                 end
+                
+                         function TrackAll(tool)
+
+                            dicomFrames = size(tool.I,3);
+                            newI = uint8(tool.I); 
+                            J = uint8(tool.I);
+                            if ~isempty(tool.currentROI)                 
+                                  if isvalid(tool.currentROI)
+                                        pos = round(getPosition(tool.currentROI));
+                                  end
+                            end
+                            %Create grid of points on the image                    
+                            if tool.pixelDensity >100
+                                tool.pixelDensity = 100;
+                            elseif tool.pixelDensity <=0;
+                                tool.pixelDensity = 1;
+                            end
+
+                            if ~isempty(tool.currentROI)                 
+                                  if isvalid(tool.currentROI)
+                                      pixelsX = pos(3); pixelsY = pos(4);
+                                      offsetX = pos(1); offsetY = pos(2);
+                                  else
+                                      pixelsX =size(tool.I,2); pixelsY = size(tool.I,1);
+                                      offsetX = .0001; offsetY = .0001;                              
+                                  end
+                            else
+                                pixelsX =size(tool.I,2); pixelsY = size(tool.I,1);
+                                offsetX = .0001; offsetY = .0001;   
+                            end
+                            % Find pixel spacing using decimation factor (tool.pixelDensity)
+                            pixelsBetweenX = (pixelsX-1)/round((pixelsX-1)*tool.pixelDensity/100);
+                            pixelsBetweenY = (pixelsY-1)/round((pixelsY-1)*tool.pixelDensity/100);
+                            count = 1;
+                            countX = 1+round(offsetX);
+                            % We get an image that is %PixelDensity^2*(pixelsX*pixelsY)
+                            while countX <= pixelsX+offsetX
+                                countY=1+round(offsetY);
+                                while countY <= pixelsY+offsetY
+                                    points(count,:) = [countX countY];
+                                    countY = countY + pixelsBetweenY;
+                                    count = count+1;
+                                end
+                                countX = countX + pixelsBetweenX;
+                            end
+                            nPoints = count - 1;
+                            tool.pointLog = zeros(nPoints, 2, dicomFrames);
+                            framenum = 1;
+                            objectFrame = newI(:,:,1);
+                            pointImage = insertMarker(objectFrame, points, '+', 'Color', 'white');
+                            newI(:,:,1) = pointImage(:,:,1);
+                            quality = ones(1,dicomFrames);
+                            % Create object tracker
+                            tracker = vision.PointTracker('MaxBidirectionalError', 3);
+
+                            % Initialize object tracker
+                            initialize(tracker, points(:,:,1), objectFrame);
+                            h = waitbar(0,'Running pixel tracker...');
+                            % Show the points getting tracked
+                            while framenum < dicomFrames
+                                 %Track the points     
+                                  frame =J(:,:,framenum);
+                                  [points, validity] = step(tracker, frame);
+                                  tool.pointLog(:,:,framenum) = points;
+                                  out = insertMarker(frame, points(validity, :), '+', 'Color', 'white');
+                                  framenum = framenum + 1;
+                                  quality(framenum) = sum(validity)/length(validity);
+                                  newI(:,:,framenum) = out(:,:,1);
+                                  waitbar(framenum/dicomFrames)   
+                            end
+                            close(h)
+                            imageViewer(newI);
+                            frames = (1:dicomFrames);
+                            quality = quality*100;
+                             figure;
+                             plot(frames, quality)
+                             xlabel('Frames'); ylabel('% of Points Tracked')
+                             title('Tracking Quality')
+                         end
+                 
         end
         
         function pixelShearCallback(hObject,evnt,tool)
