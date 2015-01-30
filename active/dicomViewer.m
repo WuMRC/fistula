@@ -1584,15 +1584,15 @@ classdef dicomViewer < handle
                             end
                             
                             slope = (poiY(2)-poiY(1))/(poiX(2)-poiX(1));
-                            shearPoints = 5;
+                            shearPoints = 15;
                             if abs(slope) >= 1.5
-                                voffset = 3;
+                                voffset = 1;
                                 if poiY(1) > poiY(2)
                                     voffset = voffset * -1;
                                 end
                                 hoffset = voffset/slope;
                             else
-                                hoffset = 3;
+                                hoffset = 1;
                                 if poiX(1) > poiX(2)
                                     hoffset = hoffset * -1;
                                 end
@@ -1612,16 +1612,17 @@ classdef dicomViewer < handle
                             for indFrame = 1:dicomFrames-1
                                 waitbar(indFrame/dicomFrames)
                                 for ind = 1:pointsTracked
-                                    IX = J(:,:,indFrame);                  %Frame 1
-                                    IY = J(:,:,indFrame+1);              %Frame 2
+%                                     IX = J(:,:,indFrame);                  %Frame 1
+%                                     IY = J(:,:,indFrame+1);              %Frame 2
                                     FILT = ones(5);                           %Filter matrix
-                                    KRNL_LMT = [2 2];                   %Group of pixels you're trying to find in next image
+                                    KRNL_LMT = [3 3];                   %Group of pixels you're trying to find in next image
                                     SRCH_LMT = [2 2];                   %Region
                                     POS = round(points(ind,:,indFrame));  %Origin of krnl and srch
-                                    [RHO]=corr2D(IX,IY,FILT,KRNL_LMT,SRCH_LMT,POS);
+                                    %[RHO]=corr2D(IX,IY,FILT,KRNL_LMT,SRCH_LMT,POS);
+                                    [RHO]=newcorr2D(KRNL_LMT,SRCH_LMT,POS,indFrame);
                                     rho(ind,indFrame) = mean(mean(RHO));
                                     rho2(ind,indFrame) = max(max(RHO));
-                                    shear(POS(2)-2:POS(2)+2,POS(1)-2:POS(1)+2,indFrame) = max(max(RHO));
+                                    %shear(POS(2)-2:POS(2)+2,POS(1)-2:POS(1)+2,indFrame) = max(max(RHO));
                                 end
                             end
                             close(h);
@@ -1632,7 +1633,7 @@ classdef dicomViewer < handle
                                     POS = round(points(ind,:,indFrame)); 
                                     maxrho = max(max(rho));
                                     newrho = 200.*rho./maxrho;
-                                    shear(POS(2)-1:POS(2)+1,POS(1)-1:POS(1)+1,indFrame) = newrho(ind,indFrame);
+                                    shear(POS(2),POS(1),indFrame) = newrho(ind,indFrame);
                                 end
                             end
                             imageViewer(shear);
@@ -1652,9 +1653,23 @@ classdef dicomViewer < handle
                             xlabel('Time'); ylabel('Distance from Wall'); zlabel('Wall Shear');
                             figure;
                             dist = 1:shearPoints;
-                            plot(dist, wallshear,dist,wallshear2)
+                            plot(dist, wallshear2)
                             xlabel('Distance from Wall'); ylabel('Wall Shear'); 
                             title('Wall Shear')
+                            
+                            function correlation = newcorr2D(krnl,srch,pos,frame)
+%
+                                correlation = zeros(2*srch(1)+1,2*srch(2)+1);
+                                for i = 1:(2*srch(1)+1)
+                                    for j = 1:(2*srch(2)+1)
+                                        x = -srch(1)+i-1;
+                                        y = -srch(2)+j-1;
+                                        kernel = J(pos(1)-krnl(1):pos(1)+krnl(1),pos(2)-krnl(2):pos(2)+krnl(2),frame);
+                                        search = J(pos(1)-krnl(1)+x:pos(1)+krnl(1)+x,pos(2)-krnl(2)+y:pos(2)+krnl(2)+y,frame+1);
+                                        correlation(i,j) = corr2(kernel,search);
+                                    end
+                                end
+                            end
 %                        end   
 %                   else
 %                        msgbox('Please select a region of interest');
@@ -1664,6 +1679,7 @@ classdef dicomViewer < handle
 %                   msgbox('Please select a region of interest');
 %                   return;  
 %             end
+
         end
         
         function pixelWallCallback(hObject,evnt,tool)
