@@ -1560,10 +1560,10 @@ classdef dicomViewer < handle
                             figHandle = gcf;
                             [poiX, poiY] = getpts(figHandle);
                             poiX = round(poiX);     poiY = round(poiY);
-                            point = [poiX(1:5), poiY(1:5)];                       
+                            point = [poiX(1), poiY(1)];                       
                             nPoints = size(poiX,1);
-                            if  nPoints  ~= 5
-                                warndlg('Please select only 5 points. Exiting function', 'Warning');
+                            if  nPoints  ~= 2
+                                warndlg('Please select only 2 points. Exiting function', 'Warning');
                                 return;
                             end
                             % Create object tracker
@@ -1583,103 +1583,29 @@ classdef dicomViewer < handle
                                   framenum = framenum + 1;
                             end
                             
-                            slope = (poiY(5)-poiY(1))/(poiX(5)-poiX(1));
-                            shearPoints = 10;
+                            slope = (poiY(2)-poiY(1))/(poiX(2)-poiX(1));
+                            shearPoints = 15;
                             if abs(slope) >= 1.5
                                 voffset = 1;
-                                if poiY(1) > poiY(5)
+                                if poiY(1) > poiY(2)
                                     voffset = voffset * -1;
                                 end
                                 hoffset = voffset/slope;
                             else
                                 hoffset = 1;
-                                if poiX(1) > poiX(5)
+                                if poiX(1) > poiX(2)
                                     hoffset = hoffset * -1;
                                 end
                                 voffset = hoffset*slope;
                             end
                             for ind = 1:dicomFrames
-                                points1(1,1,ind) = points(1,1,ind);
-                                points1(1,2,ind) = points(1,2,ind);
                                 for count = 2:shearPoints
-                                    points1(count,1,ind) = points1(count-1,1,ind)+hoffset;
-                                    points1(count,2,ind) = points1(count-1,2,ind)+voffset;
+                                    points(count,1,ind) = points(count-1,1,ind)+hoffset;
+                                    points(count,2,ind) = points(count-1,2,ind)+voffset;
                                 end
                             end
                             
-                            slope = (poiY(5)-poiY(2))/(poiX(5)-poiX(2));
-                            shearPoints = 10;
-                            if abs(slope) >= 1.5
-                                voffset = 1;
-                                if poiY(2) > poiY(5)
-                                    voffset = voffset * -1;
-                                end
-                                hoffset = voffset/slope;
-                            else
-                                hoffset = 1;
-                                if poiX(2) > poiX(5)
-                                    hoffset = hoffset * -1;
-                                end
-                                voffset = hoffset*slope;
-                            end
-                            for ind = 1:dicomFrames
-                                points1(shearPoints+1,1,ind) = points(2,1,ind);
-                                points1(shearPoints+1,2,ind) = points(2,2,ind);
-                                for count = shearPoints+2:2*shearPoints
-                                    points1(count,1,ind) = points1(count-1,1,ind)+hoffset;
-                                    points1(count,2,ind) = points1(count-1,2,ind)+voffset;
-                                end
-                            end
-                            
-                            slope = (poiY(5)-poiY(3))/(poiX(5)-poiX(3));
-                            shearPoints = 10;
-                            if abs(slope) >= 1.5
-                                voffset = 1;
-                                if poiY(3) > poiY(5)
-                                    voffset = voffset * -1;
-                                end
-                                hoffset = voffset/slope;
-                            else
-                                hoffset = 1;
-                                if poiX(3) > poiX(5)
-                                    hoffset = hoffset * -1;
-                                end
-                                voffset = hoffset*slope;
-                            end
-                            for ind = 1:dicomFrames
-                                points1( 2*shearPoints+1,1,ind) = points(3,1,ind);
-                                points1( 2*shearPoints+1,2,ind) = points(3,2,ind);
-                                for count = 2*shearPoints+2:3*shearPoints
-                                    points1(count,1,ind) = points1(count-1,1,ind)+hoffset;
-                                    points1(count,2,ind) = points1(count-1,2,ind)+voffset;
-                                end
-                            end
-                            
-                            slope = (poiY(5)-poiY(4))/(poiX(5)-poiX(4));
-                            shearPoints = 10;
-                            if abs(slope) >= 1.5
-                                voffset = 1;
-                                if poiY(4) > poiY(5)
-                                    voffset = voffset * -1;
-                                end
-                                hoffset = voffset/slope;
-                            else
-                                hoffset = 1;
-                                if poiX(4) > poiX(5)
-                                    hoffset = hoffset * -1;
-                                end
-                                voffset = hoffset*slope;
-                            end
-                            for ind = 1:dicomFrames
-                                points1(3*shearPoints+1,1,ind) = points(4,1,ind);
-                                points1(3*shearPoints+1,2,ind) = points(4,2,ind);
-                                for count = 3*shearPoints+2:4*shearPoints
-                                     points1(count,1,ind) = points1(count-1,1,ind)+hoffset;
-                                    points1(count,2,ind) = points1(count-1,2,ind)+voffset;
-                                end
-                            end
-                            
-                            pointsTracked = size(points1,1);
+                            pointsTracked = size(points,1);
                             shear = J;
                             % Create new image showing shear rate magnitudes
                             h = waitbar(0,'Calculating wall shear rate...');
@@ -1691,7 +1617,7 @@ classdef dicomViewer < handle
                                     FILT = ones(5);                           %Filter matrix
                                     KRNL_LMT = [3 3];                   %Group of pixels you're trying to find in next image
                                     SRCH_LMT = [2 2];                   %Region
-                                    POS = round(points1(ind,:,indFrame));  %Origin of krnl and srch
+                                    POS = round(points(ind,:,indFrame));  %Origin of krnl and srch
                                     %[RHO]=corr2D(IX,IY,FILT,KRNL_LMT,SRCH_LMT,POS);
                                     [RHO]=newcorr2D(KRNL_LMT,SRCH_LMT,POS,indFrame);
                                     rho(ind,indFrame) = mean(mean(RHO));
@@ -1704,43 +1630,32 @@ classdef dicomViewer < handle
                             %intensities
                             for indFrame = 1:dicomFrames-1
                                 for ind = 1:pointsTracked
-                                    POS = round(points1(ind,:,indFrame)); 
+                                    POS = round(points(ind,:,indFrame)); 
                                     maxrho = max(max(rho));
-                                    newrho = 200*rho./maxrho;
+                                    newrho = 200.*rho./maxrho;
                                     shear(POS(2),POS(1),indFrame) = newrho(ind,indFrame);
                                 end
                             end
                             imageViewer(shear);
-                            for ind = 1:pointsTracked
+                            for ind = 1:shearPoints
                                 wallshear(ind) = mean(rho(ind,:));
                                 wallshear2(ind) = mean(rho2(ind,:));
                             end
                             
-                           dist = 1:10;
-                           shear1 = wallshear2(1:10);
-                           shear2 = wallshear2(11:20);
-                           shear3 = wallshear2(21:30);
-                           shear4 = wallshear2(31:40);
                            
-                           figure;
-                           plot(dist,shear1,dist,shear2,dist,shear3,dist,shear4)
-                           xlabel('Distance from Wall (mm)'); ylabel('Wall Shear Rate (1/s)'); 
-                           title('Wall Shear')
-                           legend('Point 1', 'Point 2','Point 3','Point4');
-                            
-%                             time = 1:dicomFrames-1;
-%                             z1 = rho(1,:); z2=rho(2,:); z3=rho(3,:); z4 = rho(4,:); z5 = rho(5,:);
-%                             figure;
-%                             d1(1:dicomFrames-1) = 1; d2(1:dicomFrames-1) = 2; d3(1:dicomFrames-1) = 3;
-%                             d4(1:dicomFrames-1) = 4; d5(1:dicomFrames-1) = 5;
-%                             plot3(d1,time,z1,d2,time,z2,d3,time,z3,d4,time,z4,d5,time,z5);
-%                             %surf(rho);
-%                             xlabel('Time'); ylabel('Distance from Wall'); zlabel('Wall Shear');
-%                             figure;
-%                             dist = 1:shearPoints;
-%                             plot(dist, wallshear2)
-%                             xlabel('Distance from Wall'); ylabel('Wall Shear'); 
-%                             title('Wall Shear')
+                            time = 1:dicomFrames-1;
+                            z1 = rho(1,:); z2=rho(2,:); z3=rho(3,:); z4 = rho(4,:); z5 = rho(5,:);
+                            figure;
+                            d1(1:dicomFrames-1) = 1; d2(1:dicomFrames-1) = 2; d3(1:dicomFrames-1) = 3;
+                            d4(1:dicomFrames-1) = 4; d5(1:dicomFrames-1) = 5;
+                            plot3(d1,time,z1,d2,time,z2,d3,time,z3,d4,time,z4,d5,time,z5);
+                            %surf(rho);
+                            xlabel('Time'); ylabel('Distance from Wall'); zlabel('Wall Shear');
+                            figure;
+                            dist = 1:shearPoints;
+                            plot(dist, wallshear2)
+                            xlabel('Distance from Wall'); ylabel('Wall Shear'); 
+                            title('Wall Shear')
                             
                             function correlation = newcorr2D(krnl,srch,pos,frame)
 %
