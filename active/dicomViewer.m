@@ -117,6 +117,9 @@ classdef dicomViewer < handle
         pixelDensity %Amount of pixels being tracked
         accFrames % Frames used to find accumulated strain
         bp %Mean Arterial blood pressure
+        fRate %Frame rate in Hz
+        hRate %Hear rate in BPM
+        fName
     end
     
     methods
@@ -124,6 +127,7 @@ classdef dicomViewer < handle
         function tool = dicomViewer(varargin)  %Constructor
             %%
             %Check the inputs and set things appropriately
+            tool.fName = [];
             switch nargin
                 case 0  %tool = dicomViewer()
                     [fileName, filePath] = uigetfile('*.DCM;*.dcm;*.mat;*', ...
@@ -152,6 +156,7 @@ classdef dicomViewer < handle
 %                             indFrame = indFrame + 1;
 %                         end
                         pixelValueRange = [min(tool.I(:)), max(tool.I(:))];
+                        tool.fName = fileName;
                     end
                 case 1  %tool = dicomViewer(I)
                     tool.I = varargin{1}; position=[0 0 1 1];
@@ -214,7 +219,9 @@ classdef dicomViewer < handle
             tool.calibration = 1;
             tool.pixelDensity = 10;
             tool.accFrames = [1 size(tool.I,3)-1];
-            tool.bp = 90;
+            tool.bp = [];
+            tool.hRate = [];
+            tool.fRate = [];
             tool.I = double(tool.I);
             
             %%
@@ -512,7 +519,7 @@ classdef dicomViewer < handle
                 'String','Export Data',...
                 'Position', [lp+widthSidePanel, buff, 4*widthSidePanel, widthSidePanel],...
                 'TooltipString','Export Data To Excel');
-            fun = @(hObject,evnt) exportDataCallback(hObject,evnt,tool);
+            fun = @(hObject,evnt) exportCallback(hObject,evnt,tool);
             set(tool.handles.Tools.Export,'Callback',fun)
 
             % Create Circle ROI button
@@ -708,7 +715,7 @@ classdef dicomViewer < handle
                 'TooltipString','Help with dicomViewer');
             fun = @(hObject,evnt) displayHelp(hObject,evnt,tool);
             set(tool.handles.Tools.Help,'Callback',fun)
-            
+                      
              %Create text boxes for user guidance
              tool.handles.Tools.SetUp = uicontrol(tool.handles.Panels.ROItools,'Style','text',...
                 'String','Set Up','BackgroundColor','k','ForegroundColor','w','FontWeight','bold',...
@@ -1139,8 +1146,8 @@ classdef dicomViewer < handle
         % ***********************NEW***********************************************************
         function pixelCalibrateCallback(hObject,evnt,tool)
             %Select Points to Track
-            msgbox('Select two points with a know distance, then hit "Enter"');
-            close;
+            uiwait(msgbox('Select two points with a know distance, then hit "Enter"'));
+   
             figHandle = gcf;
             [poiX, poiY] = getpts(figHandle);
 
@@ -1168,14 +1175,15 @@ classdef dicomViewer < handle
             
             prompt = {'cm/pixel calibration factor:', '% of pixels analyzed (1-100%):','Frame range for accumulated strain (separated by a comma):','Mean Arterial Blood Pressure (mmHg)'};
                     dlg_title = 'Settings';
-                    num_lines = [1, 60; 1, 60; 1, 60; 1, 60];
+                    num_lines = [1, 60; 1, 60; 1, 60; 1, 60; 1,60];
                     cal = num2str(tool.calibration);
                     pixels = num2str(tool.pixelDensity);
                     accRange = strcat([num2str((tool.accFrames(1))),',',num2str((tool.accFrames(2)))]);
                     bloodp = num2str(tool.bp);
+                    frameRate = num2str(tool.fRate);
                     %accRange = '1,10';
                     %disp(accRange); disp(size(accRange)); disp(cal); disp(size(cal)); disp(pixels);
-                    default = {cal,pixels,accRange,bloodp};
+                    default = {cal,pixels,accRange,bloodp,frameRate};
                     options.Resize='on';
                     options.WindowStyle='normal';
                     answer = inputdlg(prompt,dlg_title,num_lines,default,options);
@@ -1184,6 +1192,7 @@ classdef dicomViewer < handle
                         tool.pixelDensity = str2double(answer{2,1});
                         tool.accFrames = str2num(answer{3,1});
                         tool.bp = str2num(answer{4,1});
+                        tool.fRate = str2num(answer{5,1});
                     end
             
         end
@@ -1825,7 +1834,54 @@ classdef dicomViewer < handle
                         end
                     end
                     imageViewer(newI);                  
-           end
+        end
+        
+        function exportCallback(hObject,evnt,tool)
+            %Functon opens a dialog box  showing data values, then saves
+            %the data to a .csv file to be imported in excel
+            
+            prompt = {'Patient ID:', 'Dicom File:','Location of Measurement:','Blood Vessel Diameter:', 'Distensibility:','Mean Arterial Pressure (mmHg):', 'Elasticity:', 'Heart Rate (bpm):'};
+                    dlg_title = 'Data to Save';
+                    num_lines = [1, 60; 1, 60; 1, 60; 1, 60; 1, 60; 1, 60; 1, 60; 1,60];
+
+                    bloodp = num2str(tool.bp);
+                    hrate = num2str(tool.hRate);
+                    
+                    default = {'',tool.fName,'','','',bloodp,'',hrate};
+                    options.Resize='on';
+                    options.WindowStyle='normal';
+                    answer = inputdlg(prompt,dlg_title,num_lines,default,options);
+                    if ~isempty(answer)
+                        %Create table for data
+                        
+                        patientID = cellstr(answer{1,1});
+                        dicomfile = cellstr(answer{2,1});
+                        location =  cellstr(answer{3,1});
+                        diameter =  cellstr(answer{4,1});
+                        distensibility =  cellstr(answer{5,1});
+                        MAP =  cellstr(answer{6,1});
+                        elasticity =  cellstr(answer{7,1});
+                        heartrate =  cellstr(answer{8,1});
+                        
+                        T = table(patientID, dicomfile, location, diameter, distensibility, MAP, elasticity, heartrate);
+                 
+                        %Save data to .csv file
+                        fileName = strcat('patient', patientID, '_', location, '.csv');
+                        [filename,pathname] = uiputfile(fileName,'Save data file');                      
+                        if isequal(filename,0) || isequal(pathname,0)
+                           disp('User selected Cancel')
+                        else
+                           disp(['User selected ',fullfile(pathname,filename)])
+                           writetable(T,fullfile(pathname,filename), 'Delimiter', ',');
+                        end
+                        
+                    else
+                        %Don't save data
+                        disp('User selected cancel')                        
+                    end            
+            
+            
+        end
         
     end
     
