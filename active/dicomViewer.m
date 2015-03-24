@@ -1917,54 +1917,7 @@ classdef dicomViewer < handle
                     end
                     imageViewer(newI);                  
         end
-        
-        function exportDataCallback(hObject,evnt,tool)
-            %Functon opens a dialog box  showing data values, then saves
-            %the data to a .csv file to be imported in excel
-            
-            prompt = {'Patient ID:', 'Dicom File:','Location of Measurement:','Blood Vessel Diameter:', 'Distensibility:','Mean Arterial Pressure (mmHg):', 'Elasticity:', 'Heart Rate (bpm):'};
-                    dlg_title = 'Data to Save';
-                    num_lines = [1, 60; 1, 60; 1, 60; 1, 60; 1, 60; 1, 60; 1, 60; 1,60];
-
-                    bloodp = num2str(tool.bp);
-                    hrate = num2str(tool.hRate);
-                    
-                    default = {'',tool.fName,'','','',bloodp,'',hrate};
-                    options.Resize='on';
-                    options.WindowStyle='normal';
-                    answer = inputdlg(prompt,dlg_title,num_lines,default,options);
-                    if ~isempty(answer)
-                        %Create table for data
-                        
-                        patientID = cellstr(answer{1,1});
-                        dicomfile = cellstr(answer{2,1});
-                        location =  cellstr(answer{3,1});
-                        diameter =  cellstr(answer{4,1});
-                        distensibility =  cellstr(answer{5,1});
-                        MAP =  cellstr(answer{6,1});
-                        elasticity =  cellstr(answer{7,1});
-                        heartrate =  cellstr(answer{8,1});
-                        
-                        T = table(patientID, dicomfile, location, diameter, distensibility, MAP, elasticity, heartrate);
-                 
-                        %Save data to .csv file
-                        fileName = strcat('patient', patientID, '_', location, '.csv');
-                        [filename,pathname] = uiputfile(fileName,'Save data file');                      
-                        if isequal(filename,0) || isequal(pathname,0)
-          he                 disp('User selected Cancel')
-                        else
-                           disp(['User selected ',fullfile(pathname,filename)])
-                           writetable(T,fullfile(pathname,filename), 'Delimiter', ',');
-                        end
-                        
-                    else
-                        %Don't save data
-                        disp('User selected cancel')                        
-                    end            
-            
-            
-        end
-        
+              
     end
     
     
