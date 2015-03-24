@@ -529,8 +529,8 @@ classdef dicomViewer < handle
             tool.handles.Tools.Export = ...
                 uicontrol(tool.handles.Panels.Tools,...
                 'Style','pushbutton',...
-                'String','Export Data',...
-                'Position', [lp+widthSidePanel, buff, 4*widthSidePanel, widthSidePanel],...
+                'String','Edit/Export Data',...
+                'Position', [lp+widthSidePanel, buff, 6*widthSidePanel, widthSidePanel],...
                 'TooltipString','Export Data To Excel');
             fun = @(hObject,evnt) exportCallback(hObject,evnt,tool);
             set(tool.handles.Tools.Export,'Callback',fun)
@@ -689,16 +689,7 @@ classdef dicomViewer < handle
             fun=@(hObject,evnt) pixelWallCallback(hObject,evnt,tool);
             set(tool.handles.Tools.Wall ,'Callback',fun)
              
-%             %Create Motion Vector button
-%             tool.handles.Tools.Motion = ...
-%                 uicontrol(tool.handles.Panels.ROItools,...
-%                 'Style','pushbutton',...
-%                 'String','Motion',...
-%                 'Position',[buff, buff+8*widthSidePanel, 3.5*widthSidePanel, widthSidePanel],...
-%                 'TooltipString','Create Motion Vectors for pixels in Region of Interest ');
-%             fun=@(hObject,evnt) pixelMotionCallback(hObject,evnt,tool);
-%             set(tool.handles.Tools.Motion ,'Callback',fun)
-                                
+                              
             %Create Calibration Button
             tool.handles.Tools.Calibrate = ...
                 uicontrol(tool.handles.Panels.ROItools,...
@@ -1089,7 +1080,7 @@ classdef dicomViewer < handle
                     fcn=@(pos) newROIposition(pos,h,tool);
                     addNewPositionCallback(h,fcn);
                     setPosition(h,getPosition(h));
-                    
+                    tool.pointLog = [];
                             
                 case 'rectangle'
                     fcn = makeConstrainToRectFcn('imrect',[1 size(tool.I,2)],[1 size(tool.I,1)]);
@@ -1098,6 +1089,7 @@ classdef dicomViewer < handle
                     fcn=@(pos) newROIposition(pos,h,tool);
                     addNewPositionCallback(h,fcn);
                     setPosition(h,getPosition(h));
+                    tool.pointLog = [];
                     
                 case 'polygon'
                     fcn = makeConstrainToRectFcn('impoly',[1 size(tool.I,2)],[1 size(tool.I,1)]);
@@ -1106,6 +1098,7 @@ classdef dicomViewer < handle
                     fcn=@(pos) newROIposition(pos,h,tool);
                     addNewPositionCallback(h,fcn);
                     setPosition(h,getPosition(h));
+                    tool.pointLog = [];
                      
                 case 'ruler'
                     h = imdistline(tool.handles.Axes);
@@ -1126,6 +1119,7 @@ classdef dicomViewer < handle
                 if isvalid(tool.currentROI)
                     delete(tool.currentROI)
                     set(tool.handles.ROIinfo,'String','STD:                    Mean:                    ');
+                    tool.pointLog = [];
                 end
             %end
         end
@@ -1148,7 +1142,7 @@ classdef dicomViewer < handle
             [I2 rect] = imcrop(tool.handles.Axes);
             rect=round(rect);
             setImage(tool, tool.I(rect(2):rect(2)+rect(4)-1,rect(1):rect(1)+rect(3)-1,:))
-            
+            tool.pointLog = [];
         end
         
         function resetViewCallback(hObject,evnt,tool)
@@ -1191,6 +1185,7 @@ classdef dicomViewer < handle
                     num_lines = [1, 60; 1, 60; 1, 60; 1, 60; 1,60];
                     cal = num2str(tool.calibration);
                     pixels = num2str(tool.pixelDensity);
+                    oldpixels = tool.pixelDensity;
                     accRange = strcat([num2str((tool.accFrames(1))),',',num2str((tool.accFrames(2)))]);
                     bloodp = num2str(tool.bp);
                     frameRate = num2str(tool.fRate);
@@ -1207,7 +1202,9 @@ classdef dicomViewer < handle
                         tool.bp = str2num(answer{4,1});
                         tool.fRate = str2num(answer{5,1});
                     end
-            
+                    if oldpixels ~= tool.pixelDensity
+                        tool.pointLog = [];
+                    end
         end
         
         function pixelTrack2Callback(hObject,evnt,tool)
@@ -1424,96 +1421,33 @@ classdef dicomViewer < handle
 
                          
         end
-     
-        function pixelTrackAllCallback(hObject,evnt,tool)
-              
-                    dicomFrames = size(tool.I,3);
-                    newI = uint8(tool.I); 
-                    J = uint8(tool.I);
-                    if ~isempty(tool.currentROI)                 
-                          if isvalid(tool.currentROI)
-                                pos = round(getPosition(tool.currentROI));
-                          end
-                    end
-                    %Create grid of points on the image                    
-                    if tool.pixelDensity >100
-                        tool.pixelDensity = 100;
-                    elseif tool.pixelDensity <=0;
-                        tool.pixelDensity = 1;
-                    end
-                    
-                    if ~isempty(tool.currentROI)                 
-                          if isvalid(tool.currentROI)
-                              pixelsX = pos(3); pixelsY = pos(4);
-                              offsetX = pos(1); offsetY = pos(2);
-                          else
-                              pixelsX =size(tool.I,2); pixelsY = size(tool.I,1);
-                              offsetX = .0001; offsetY = .0001;                              
-                          end
-                    else
-                        pixelsX =size(tool.I,2); pixelsY = size(tool.I,1);
-                        offsetX = .0001; offsetY = .0001;   
-                    end
-                    % Find pixel spacing using decimation factor (tool.pixelDensity)
-                    pixelsBetweenX = (pixelsX-1)/round((pixelsX-1)*tool.pixelDensity/100);
-                    pixelsBetweenY = (pixelsY-1)/round((pixelsY-1)*tool.pixelDensity/100);
-                    count = 1;
-                    countX = 1+round(offsetX);
-                    % We get an image that is %PixelDensity^2*(pixelsX*pixelsY)
-                    while countX <= pixelsX+offsetX
-                        countY=1+round(offsetY);
-                        while countY <= pixelsY+offsetY
-                            points(count,:) = [countX countY];
-                            countY = countY + pixelsBetweenY;
-                            count = count+1;
-                        end
-                        countX = countX + pixelsBetweenX;
-                    end
-                    nPoints = count - 1;
-                    tool.pointLog = zeros(nPoints, 2, dicomFrames);
-                    framenum = 1;
-                    objectFrame = newI(:,:,1);
-                    pointImage = insertMarker(objectFrame, points, '+', 'Color', 'white');
-                    newI(:,:,1) = pointImage(:,:,1);
-                    quality = ones(1,dicomFrames);
-                    % Create object tracker
-                    tracker = vision.PointTracker('MaxBidirectionalError', 3);
-
-                    % Initialize object tracker
-                    initialize(tracker, points(:,:,1), objectFrame);
-                    h = waitbar(0,'Running pixel tracker...');
-                    % Show the points getting tracked
-                    while framenum < dicomFrames
-                         %Track the points     
-                          frame =J(:,:,framenum);
-                          [points, validity] = step(tracker, frame);
-                          tool.pointLog(:,:,framenum) = points;
-                          out = insertMarker(frame, points(validity, :), '+', 'Color', 'white');
-                          framenum = framenum + 1;
-                          quality(framenum) = sum(validity)/length(validity);
-                          newI(:,:,framenum) = out(:,:,1);
-                          waitbar(framenum/dicomFrames)   
-                    end
-                    close(h)
-                    imageViewer(newI);
-                    frames = (1:dicomFrames);
-                    quality = quality*100;
-                     figure;
-                     plot(frames, quality)
-                     xlabel('Frames'); ylabel('% of Points Tracked')
-                     title('Tracking Quality')
-                                                    
-        end
-        
+            
         function pixelStrainCallback(hObject,evnt,tool)
                  tool.pointLog = tool.pointLog;
                  if (isempty(tool.pointLog))
-                   TrackAll(tool);
-                else
+                     msgbox('Tracking all points'); pause(1); close;
+                     TrackAll(tool);
+                 end
                    dicomFrames = size(tool.I,3);
                    choice = questdlg('Which type of strain would you like to display?', ...
                         'Select strain type', 'Accumulated','Frame to Frame','Frame to Frame');
-                   switch choice
+                   
+                    if ~isempty(tool.currentROI)                 
+                                  if isvalid(tool.currentROI)
+                                        pos = round(getPosition(tool.currentROI));
+                                        pixelsX = pos(3); pixelsY = pos(4);
+                                  else
+                                      pixelsX =size(tool.I,2); pixelsY = size(tool.I,1);    
+                                  end
+                     else
+                         pixelsX =size(tool.I,2); pixelsY = size(tool.I,1);    
+                     end
+                      
+                    pixelsXtracked = round(pixelsX*tool.pixelDensity/100)+1;
+                    pixelsYtracked = round(pixelsY*tool.pixelDensity/100)+1;
+                    trackedPixels = pixelsXtracked*pixelsYtracked;
+                    
+                    switch choice
                        case 'Accumulated'
                            startFrame = tool.accFrames(1);
                            endFrame = tool.accFrames(2)-1;
@@ -1530,14 +1464,10 @@ classdef dicomViewer < handle
                             for indFrames = 1:dicomFrames-1
                                 pointLogDiff(:,:,indFrames) = tool.pointLog(:,:,indFrames+1) ...
                                     - tool.pointLog(:,:,indFrames);
+                                    
                             end
                     end
-                    %I don't know how right these 2 calculations
-                    %are...I think they need to be reevaluated
-                    pixelsX = size(tool.I,2); pixelsY = size(tool.I,1);
-                    pixelsXtracked = round(pixelsX*tool.pixelDensity/100)+1;
-                    pixelsYtracked = round(pixelsY*tool.pixelDensity/100)+1;
-                    trackedPixels = pixelsXtracked*pixelsYtracked;
+
                     % Separate x and y differences for each point on the image
                     counter = 1;
                     range = endFrame-startFrame+1;
@@ -1554,7 +1484,6 @@ classdef dicomViewer < handle
                         totalDiff(:,:,ind) = imadjust(totalDiff(:,:,ind));
                     end
                     imageViewer(totalDiff);
-                 end
                 
                          function TrackAll(tool)
 
@@ -1575,26 +1504,32 @@ classdef dicomViewer < handle
 
                             if ~isempty(tool.currentROI)                 
                                   if isvalid(tool.currentROI)
+                                      %If there is an roi get dimensions
                                       pixelsX = pos(3); pixelsY = pos(4);
-                                      offsetX = pos(1); offsetY = pos(2);
+                                      offsetX = round(pos(1)); offsetY = round(pos(2));
                                   else
+                                      %If no roi get dimensions for entire image
                                       pixelsX =size(tool.I,2); pixelsY = size(tool.I,1);
-                                      offsetX = .0001; offsetY = .0001;                              
+                                      offsetX = 0.001; offsetY = 0.001;                              
                                   end
                             else
-                                pixelsX =size(tool.I,2); pixelsY = size(tool.I,1);
+                                %If no roi get dimensions for entire image
+                                pixelsX =round(size(tool.I,2)); pixelsY = round(size(tool.I,1));
                                 offsetX = .0001; offsetY = .0001;   
                             end
-                            % Find pixel spacing using decimation factor (tool.pixelDensity)
-                            pixelsBetweenX = (pixelsX-1)/round((pixelsX-1)*tool.pixelDensity/100);
-                            pixelsBetweenY = (pixelsY-1)/round((pixelsY-1)*tool.pixelDensity/100);
+                            % Find pixel spacing using pixel density factor (tool.pixelDensity)
+                            pixelsBetweenX = (pixelsX-1)/round((pixelsX-1)*tool.pixelDensity/100); disp(pixelsBetweenX)
+                            pixelsBetweenY = (pixelsY-1)/round((pixelsY-1)*tool.pixelDensity/100); disp(pixelsBetweenY)
                             count = 1;
-                            countX = 1+round(offsetX);
-                            % We get an image that is %PixelDensity^2*(pixelsX*pixelsY)
+                            countX = 1+offsetX;
+                            % We get a grid that is %PixelDensity^2*(pixelsX*pixelsY)
+                            disp([pixelsX pixelsY])
+                            disp(100*pixelsX*pixelsY)
+                            points = zeros(1,2);
                             while countX <= pixelsX+offsetX
-                                countY=1+round(offsetY);
+                                countY=1+offsetY;
                                 while countY <= pixelsY+offsetY
-                                    points(count,:) = [countX countY];
+                                    points(count,:) = [round(countX) round(countY)];
                                     countY = countY + pixelsBetweenY;
                                     count = count+1;
                                 end
