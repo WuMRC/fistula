@@ -119,7 +119,14 @@ classdef dicomViewer < handle
         bp %Mean Arterial blood pressure
         fRate %Frame rate in Hz
         hRate %Hear rate in BPM
-        fName
+        fName %File opened
+        zlocation %Measurement location on the arm
+        zdiameter %Average measured diameter
+        zdistensibility %Average measured distensibility
+        zelasticity %Average measured elasticity
+        zpatientID
+        pointDistCm
+        
     end
     
     methods
@@ -147,7 +154,7 @@ classdef dicomViewer < handle
                         end
                         position=[0, 0, 1, 1];
                         heightHistogram=  figure('Position', [400 200 600 600]);
-                        set(heightHistogram,'Toolbar','none','Menubar','none')
+                        set(heightHistogram,'Toolbar','none','Menubar','none');
 %                         numFrames = tool.dicomsize(3);
 %                         %Adjust image
 %                         indFrame = 1;
@@ -213,6 +220,7 @@ classdef dicomViewer < handle
             end
             
             %--------------------------------------------------------------
+           %% Initialize Variables
             tool.handles.fig = heightHistogram;
             tool.handlesROI = [];
             tool.currentROI = [];
@@ -221,8 +229,13 @@ classdef dicomViewer < handle
             tool.accFrames = [1 size(tool.I,3)-1];
             tool.bp = [];
             tool.hRate = [];
-            tool.fRate = [];
+            tool.fRate = 15;
             tool.I = double(tool.I);
+            tool.zlocation = []; 
+            tool.zdiameter = [];
+            tool.zdistensibility = []; 
+            tool.zelasticity =[]; 
+            tool.pointDistCm = [];
             
             %%
             % Create the panels and slider
@@ -1173,7 +1186,7 @@ classdef dicomViewer < handle
         
         function pixelSettingsCallback(hObject,evnt,tool)
             
-            prompt = {'cm/pixel calibration factor:', '% of pixels analyzed (1-100%):','Frame range for accumulated strain (separated by a comma):','Mean Arterial Blood Pressure (mmHg)'};
+            prompt = {'cm/pixel calibration factor:', '% of pixels analyzed (1-100%):','Frame range for accumulated strain (separated by a comma):','Mean Arterial Blood Pressure (mmHg)','Frame Rate (Hz):'};
                     dlg_title = 'Settings';
                     num_lines = [1, 60; 1, 60; 1, 60; 1, 60; 1,60];
                     cal = num2str(tool.calibration);
@@ -1248,14 +1261,24 @@ classdef dicomViewer < handle
                     
                     %Convert pixels to cm and percent
                     cm = tool.calibration;
-                    pointDistCm = pointDist.*cm;
+                    tool.pointDistCm = pointDist.*cm;
                     pointDistPercent = pointDist.*100./max(max(pointDist));
-                    pointDistTp = pointDistCm - min(pointDistCm);
+                    pointDistTp = tool.pointDistCm - min(tool.pointDistCm);
                     pointDistTpPercent = pointDistPercent-min(pointDistPercent);
+                    tool.zdiameter = mean(tool.pointDistCm);
+                    tool.zdistensibility = max(pointDistTp);
                   
-                    sampleFreq = 16; %want to obtain this from dicom somehow
+                    sampleFreq = tool.fRate;
                     time = (1:dicomFrames)/sampleFreq;
-                       
+                    
+                    %Find heart rate by looking at mins in cardiac cycle
+                    [~,indd]=lmin(tool.pointDistCm,1);
+                    indd = indd/sampleFreq;
+                    disp(indd)
+                    avgbeat = mean(diff(indd));
+                    tool.hRate = 60/avgbeat; %Heart rate in bpm
+                    disp(tool.hRate)
+                    
                     imageViewer(newI);
                     
                     %Initialize global variables
@@ -1285,9 +1308,10 @@ classdef dicomViewer < handle
                     set([f,ha,hpopup,hdrawrange],'Units','normalized');
 
                     % Create a plot in the axes. 
-                    plot(time, pointDistCm)
+                    plot(time, tool.pointDistCm)
                     xlabel('Time [s]'); ylabel('Distance [cm]')
                     title('Distance between 2 points')
+                    
 
                     % Assign the GUI a name to appear in the window title. 
                     set(f,'Name','Distance Between 2 Points')
@@ -1306,7 +1330,7 @@ classdef dicomViewer < handle
                             % Set current data to the selected data set.
                             switch str{val}; 
                                 case 'Distance [cm]' % User selects cm
-                                    plot(time, pointDistCm)
+                                    plot(time, tool.pointDistCm)
                                     xlabel('Time [s]'); ylabel('Distance [cm]')
                                     title('Distance between 2 points')
                                 case 'Distensibility [cm]' % User selects cm
@@ -1334,12 +1358,70 @@ classdef dicomViewer < handle
                                 tool.accFrames = [round((pos1(1,1)+pos1(2,1))*sampleFreq/2) , round((pos2(1,1)+pos2(2,1))*sampleFreq/2)];
                                 msgbox(['Frame range set as: ' num2str(tool.accFrames(1)) '-' num2str(tool.accFrames(2))]);    
                          end
+                         
+                        function [lmval,indd]=lmin(xx,filt)
+                            %Find the local minima in a data set, excludes the first
+                            %and last points.
+                            % Created by Serge Koptenko, Guigne International Ltd.
+                            x=xx;
+                            len_x = length(x);
+                                fltr=[1 1 1]/3;
+                              if nargin <2, filt=0; 
+                                else
+                            x1=x(1); x2=x(len_x); 
+
+                                for jj=1:filt,
+                                c=conv(fltr,x);
+                                x=c(2:len_x+1);
+                                x(1)=x1;  
+                                    x(len_x)=x2; 
+                                end
+                              end
+
+                            lmval=[];
+                            indd=[];
+                            i=2;		% start at second data point in time series
+
+                                while i < len_x-1,
+                                if x(i) < x(i-1)
+                                   if x(i) < x(i+1)	% definite min
+                            lmval =[lmval x(i)];
+                            indd = [ indd i];
+
+                                   elseif x(i)==x(i+1)&&x(i)==x(i+2)	% 'long' flat spot
+                            %lmval =[lmval x(i)];	%1   comment these two lines for strict case 
+                            %indd = [ indd i];	%2 when only  definite min included
+                            i = i + 2;  		% skip 2 points
+
+                                   elseif x(i)==x(i+1)	% 'short' flat spot
+                            %lmval =[lmval x(i)];	%1   comment these two lines for strict case
+                            %indd = [ indd i];	%2 when only  definite min included
+                            i = i + 1;		% skip one point
+                                   end
+                                end
+                                i = i + 1;
+                                end
+                           if filt>0 && ~isempty(indd),
+                                if (indd(1)<= 3)||(indd(length(indd))+2>length(xx)), 
+                                   rng=1;	%check if index too close to the edge
+                                else rng=2;
+                                end
+
+                                   for ii=1:length(indd), 
+                                    [val(ii) iind(ii)] = min(xx(indd(ii) -rng:indd(ii) +rng));
+                                    iind(ii)=indd(ii) + iind(ii)  -rng-1;
+                                   end
+                              indd=iind; lmval=val;
+                            else
+                            end
+                        end     
                         
 %                          function runstrain_button_Callback(source,eventdata)
 %                                 if (isempty(tool.pointLog))
 %                                     pixelTrackAllCallback(hObject,evnt,tool);
 %                                 end
 %                          end
+
                          
         end
      
@@ -1836,7 +1918,7 @@ classdef dicomViewer < handle
                     imageViewer(newI);                  
         end
         
-        function exportCallback(hObject,evnt,tool)
+        function exportDataCallback(hObject,evnt,tool)
             %Functon opens a dialog box  showing data values, then saves
             %the data to a .csv file to be imported in excel
             
@@ -1869,7 +1951,7 @@ classdef dicomViewer < handle
                         fileName = strcat('patient', patientID, '_', location, '.csv');
                         [filename,pathname] = uiputfile(fileName,'Save data file');                      
                         if isequal(filename,0) || isequal(pathname,0)
-                           disp('User selected Cancel')
+          he                 disp('User selected Cancel')
                         else
                            disp(['User selected ',fullfile(pathname,filename)])
                            writetable(T,fullfile(pathname,filename), 'Delimiter', ',');
@@ -2106,40 +2188,150 @@ switch get(tool.handles.Tools.SaveOptions,'value')
 end
 end
 
-function exportDataCallback(hObject,evnt,tool)
+function exportCallback(hObject,evnt,tool)
+     
+    f = figure('Visible','off','Position',[360,500,320,280],'NumberTitle', 'off','ToolBar','none','MenuBar','none','Name','Edit/Export Data');
     
-    f = figure('Visible','off');
-    ax = axes('Units','pixels');
+    % Create headers and text boxes
+    patientIDText = uicontrol('Style', 'edit','FontSize', 10,...
+           'String', num2str(tool.zpatientID), 'Position', [140 240 120 20]);
+   dicomFileText = uicontrol('Style', 'text','FontSize', 10,'BackgroundColor', [.8,.8,.8],...
+           'String', tool.fName, 'Position', [140 220 120 20]);
+    locationText = uicontrol('Style', 'edit','FontSize', 10,...
+           'String', num2str(tool.zlocation), 'Position', [140 200 120 20]);
+    diameterText = uicontrol('Style', 'edit','FontSize', 10,...
+           'String', num2str(tool.zdiameter), 'Position', [140 180 120 20]);
+    distensibilityText = uicontrol('Style', 'edit','FontSize', 10,...
+           'String', num2str(tool.zdistensibility), 'Position', [140 160 120 20]);
+    elasticityText = uicontrol('Style', 'edit','FontSize', 10,...
+           'String', num2str(tool.zelasticity), 'Position', [140 120 120 20]);
+    mapText = uicontrol('Style', 'edit','FontSize', 10,...
+           'String', num2str(tool.bp), 'Position', [140  80 120 20]);
+    hrText = uicontrol('Style', 'edit','FontSize', 10,...
+           'String', num2str(tool.hRate), 'Position', [140 60 120 20]);
+       
+     patientIDHeader = uicontrol('Style', 'text','FontSize', 10,'HorizontalAlignment','left',...
+           'String', 'Patient ID:', 'Position', [10 240 128 20], 'BackgroundColor', [.8,.8,.8]);
+     dicomFileHeader = uicontrol('Style', 'text','FontSize', 10,'HorizontalAlignment','left',...
+           'String', 'DICOM File:', 'Position', [10 220 128 20], 'BackgroundColor', [.8,.8,.8]);
+     locationHeader = uicontrol('Style', 'text','FontSize', 10,'HorizontalAlignment','left',...
+           'String', 'Blood Vessel Type:', 'Position', [10 200 128 20], 'BackgroundColor', [.8,.8,.8]);
+      diameterHeader = uicontrol('Style', 'text','FontSize', 10,'HorizontalAlignment','left',...
+           'String', 'Blood Vessel Diam:', 'Position', [10 180 128 20], 'BackgroundColor', [.8,.8,.8]);
+      distensibilityHeader = uicontrol('Style', 'text','FontSize', 10,'HorizontalAlignment','left',...
+           'String', 'Distensibility:', 'Position', [10 160 128 20], 'BackgroundColor', [.8,.8,.8]);
+      elasticityHeader = uicontrol('Style', 'text','FontSize', 10,'HorizontalAlignment','left',...
+           'String', 'Elasticity:', 'Position', [10 120 128 20], 'BackgroundColor', [.8,.8,.8]);
+      mapHeader = uicontrol('Style', 'text','FontSize', 10,'HorizontalAlignment','left',...
+           'String', 'Mean Art. Pressure:', 'Position', [10 80 128 20], 'BackgroundColor', [.8,.8,.8]);
+      hrHeader = uicontrol('Style', 'text','FontSize', 10,'HorizontalAlignment','left',...
+           'String', 'Heart Rate:', 'Position', [10 60 128 20], 'BackgroundColor', [.8,.8,.8]);
+       
+      diameterUnits = uicontrol('Style', 'text','FontSize', 10,'HorizontalAlignment','left',...
+           'String', 'cm', 'Position', [262 180 30 20], 'BackgroundColor', [.8,.8,.8]);
+      distensibilityUnits = uicontrol('Style', 'text','FontSize', 10,'HorizontalAlignment','left',...
+           'String', 'cm', 'Position', [262 160 30 20], 'BackgroundColor', [.8,.8,.8]);
+      elasticityUnits = uicontrol('Style', 'text','FontSize', 10,'HorizontalAlignment','left',...
+           'String', '', 'Position', [262 120 30 20], 'BackgroundColor', [.8,.8,.8]);
+      mapUnits = uicontrol('Style', 'text','FontSize', 10,'HorizontalAlignment','left',...
+           'String', 'mmHg', 'Position', [262 80 40 20], 'BackgroundColor', [.8,.8,.8]);
+      hrUnits = uicontrol('Style', 'text','FontSize', 10,'HorizontalAlignment','left',...
+           'String', 'bpm', 'Position', [262 60 30 20], 'BackgroundColor', [.8,.8,.8]);
+       
+       
+     % Create push buttons
+    Export = uicontrol('Style', 'pushbutton', 'String', 'Export',...
+        'FontSize', 11,'Position', [10 10 65 25],'Callback', @Export_callback);
+     Ok = uicontrol('Style', 'pushbutton', 'String', 'Ok',...
+        'FontSize', 11,'Position', [160 10 70 25],'Callback', @OK_callback);
+    Cancel = uicontrol('Style', 'pushbutton', 'String', 'Cancel',...
+        'FontSize', 11,'Position', [240 10 80 25], 'Callback', @Cancel_callback);
     
-    % Create pop-up menu
-    popup = uicontrol('Style', 'popup',...
-           'String', {'parula','jet','hsv','hot','cool','gray'},...
-           'Position', [20 340 100 50],...
-           'Callback', @setmap);
-     % Create push button
-    ok = uicontrol('Style', 'pushbutton', 'String', 'Ok',...
-        'Position', [20 20 50 20],...
-        'Callback', 'cla');
+    %Create check boxes
+    pulsgraph = uicontrol('Style', 'checkbox', 'FontSize', 9,'HorizontalAlignment','left',...
+        'String', 'Include pulsatility graph', 'Position', [100 141 200 18], 'BackgroundColor', [.8,.8,.8]);
+    elastgraph = uicontrol('Style', 'checkbox', 'FontSize', 9,'HorizontalAlignment','left',...
+        'String', 'Include elasticity graph', 'Position', [100 101 200 18], 'BackgroundColor', [.8,.8,.8]);
     
-    cancel = uicontrol('Style', 'pushbutton', 'String', 'Cancel',...
-        'Position', [90 20 50 20],...
-        'Callback', @finished);
+    % Assign the GUI a name to appear in the window title. 
+    set(f,'Name','Edit or Export Data')
     
-    f.Visible = 'on';
+    % Move the GUI to the center of the screen. 
+    movegui(f,'center')
+    % Make the GUI visible. 
+    set(f,'Visible','on','Resize','off');
     
-    function finished(source,callbackdata)
-          ans = source.String;
-          if strcmp(ans,'Ok')
-          elseif strcmp(ans,'Cancel')
-          else
-          end
-    
+    function Cancel_callback(hObject,callbackdata)
+          disp('Cancel')
+          %Closes window without saving changes
+          close;
     end
-    lims=get(tool.handles.Axes,'CLim');
-    [FileName,PathName] = uiputfile({'*.txt';'*.csv'},'Export Data');
-    [~, ~, ext] = fileparts(FileName);
+    function OK_callback(hObject,callbackdata)
+          disp('OK')
+          choice = questdlg('Are you sure you want to overwrite data?', ...
+                'Warning', ...
+                'Yes','No','No');
+            % Handle response
+            switch choice
+                case 'Yes'
+                      %Saves changes, then closes window
+                      tool.zpatientID = str2double(get(patientIDText,'String'));
+                      tool.fName = get(dicomFileText,'String');
+                      tool.zlocation =get(locationText, 'String');
+                      tool.zdiameter =str2num(get(diameterText, 'String'));
+                      tool.zdistensibility =str2num(get(distensibilityText, 'String'));
+                      tool.bp = str2num(get(mapText, 'String'));
+                      tool.zelasticity =str2num(get(elasticityText,'String'));
+                      tool.hRate = str2num(get(hrText, 'String'));
+                      close;
+                case 'No'
+                    %Don't save changes
+            end
+    end
+
+    function Export_callback(hObject,callbackdata)
+          disp('Export')
+          %Exports data to excel
+          patientID = cellstr(get(patientIDText, 'String'));
+          dicomfile = cellstr(get(dicomFileText, 'String'));
+          location =  cellstr(get(locationText, 'String'));
+          diameter =  cellstr(get(diameterText, 'String'));
+          distensibility =  cellstr(get(distensibilityText, 'String'));
+          MAP =  cellstr(get(mapText, 'String'));
+          elasticity =  cellstr(get(elasticityText, 'String'));
+          heartrate =  cellstr(get(hrText, 'String'));
+          time = transpose((1:size(tool.I,3))/tool.fRate);
+          pulsatility = transpose(tool.pointDistCm);
+          disp(size(time)); disp(size(pulsatility));
+          T1 = table(patientID, dicomfile, location, diameter, distensibility, MAP, elasticity, heartrate);     
+
+          %Save data to .csv file
+          fileName = strcat('patient', patientID, '_', location, '.xlsx');
+          [filename,pathname] = uiputfile(fileName,'Save data file');                      
+          if isequal(filename,0) || isequal(pathname,0)
+             disp('User selected Cancel')
+          else
+             disp(['User selected ',fullfile(pathname,filename)])
+             writetable(T1,fullfile(pathname,filename),'Sheet',1);
+             if length(pulsatility) == length(time) 
+                 if get(pulsgraph,'Value') == 1 && get(elastgraph,'Value') == 1
+                       T2 = table(time, pulsatility);
+                       writetable(T2,fullfile(pathname,filename),'Sheet',2);
+                 elseif get(pulsgraph,'Value') == 1
+                      T2 = table(time, pulsatility);
+                      writetable(T2,fullfile(pathname,filename), 'Sheet',2);
+                 elseif get(elastgraph,'Value') == 1
+                 end
+             else
+                 msgbox('Variables are not the same size')
+             end
+             msgbox('Data export successful')      
+          end
+          
+    end
         
 end
+        
 
 function ShowHistogram(hObject,evnt,tool,w,h)
 set(tool.handles.Panels.Large,'Units','Pixels')
