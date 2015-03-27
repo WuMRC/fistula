@@ -627,7 +627,7 @@ classdef dicomViewer < handle
             set(tool.handles.Tools.Crop ,'Callback',fun)
             
             % ********************************NEW STUFF**************************
-            pos = get(tool.handles.Panels.ROItools,'Position');
+
             % Create 2 pixel tracking button
             tool.handles.Tools.Track2 = ...
                 uicontrol(tool.handles.Panels.ROItools,...
@@ -746,7 +746,7 @@ classdef dicomViewer < handle
             
         end
         
-        function setPosition(tool,position)
+        function setPosition(tool,~)
             set(tool.handles.Panels.Large,'Position',newPosition)
         end
         
@@ -897,7 +897,7 @@ classdef dicomViewer < handle
             tool.handlesROI{end+1}=h;
         end
         
-        function scrollWheel(scr,evnt,tool)
+        function scrollWheel(~,evnt,tool)
             %Check to see if the mouse is hovering over the axis
             units=get(tool.handles.fig,'Units');
             set(tool.handles.fig,'Units','Pixels')
@@ -982,7 +982,7 @@ classdef dicomViewer < handle
             set(tool.handles.Histrange(3),'XData',[L L L])
         end
         
-        function WindowLevel_callback(hobject,evnt,tool)
+        function WindowLevel_callback(~,~,tool)
             range=get(tool.handles.Axes,'Clim');
             Wold=range(2)-range(1); Lold=mean(range);
             W=str2num(get(tool.handles.Tools.W,'String'));
@@ -998,31 +998,31 @@ classdef dicomViewer < handle
             setWL(tool,W,L)
         end
         
-        function imageButtonDownFunction(hObject,eventdata,tool)
-            bp=get(tool.handles.Axes,'CurrentPoint');
-            bp=[bp(1,1) bp(1,2)];
+        function imageButtonDownFunction(~,~,tool)
+            cp=get(tool.handles.Axes,'CurrentPoint');
+            cp=[cp(1,1) cp(1,2)];
             switch get(tool.handles.fig,'SelectionType')
                 case 'normal'   %Adjust window and level
                     CLIM=get(tool.handles.Axes,'Clim');
                     W=CLIM(2)-CLIM(1);
                     L=mean(CLIM);
-                    fun=@(src,evnt) adjustContrastMouse(src,evnt,bp,tool.handles.Axes,tool,W,L);
+                    fun=@(src,evnt) adjustContrastMouse(src,evnt,cp,tool.handles.Axes,tool,W,L);
                     fun2=@(src,evnt) buttonUpFunction(src,evnt,tool);
                     set(tool.handles.fig,'WindowButtonMotionFcn',fun,'WindowButtonUpFcn',fun2)
                 case 'extend'  %Zoom
-                    fun=@(src,evnt) adjustZoomMouse(src,evnt,bp,tool.handles.Axes,tool);
+                    fun=@(src,evnt) adjustZoomMouse(src,evnt,cp,tool.handles.Axes,tool);
                     fun2=@(src,evnt) buttonUpFunction(src,evnt,tool);
                     set(tool.handles.fig,'WindowButtonMotionFcn',fun,'WindowButtonUpFcn',fun2)
                 case 'alt'
                     xlims=get(tool.handles.Axes,'Xlim');
                     ylims=get(tool.handles.Axes,'Ylim');
-                    fun=@(src,evnt) adjustPanMouse(src,evnt,bp,tool.handles.Axes,xlims,ylims);
+                    fun=@(src,evnt) adjustPanMouse(src,evnt,cp,tool.handles.Axes,xlims,ylims);
                     fun2=@(src,evnt) buttonUpFunction(src,evnt,tool);
                     set(tool.handles.fig,'WindowButtonMotionFcn',fun,'WindowButtonUpFcn',fun2)
             end
         end
         
-        function histogramButtonDownFunction(hObject,evnt,tool,line)
+        function histogramButtonDownFunction(~,~,tool,line)
             
             switch line
                 case 1 %Lower limit of range
@@ -1040,7 +1040,7 @@ classdef dicomViewer < handle
             end
         end
         
-        function toggleGrid(hObject,eventdata,tool)
+        function toggleGrid(hObject,~,tool)
             if get(hObject,'Value')
                 set(tool.handles.grid,'Visible','on')
             else
@@ -1048,13 +1048,13 @@ classdef dicomViewer < handle
             end
         end
         
-        function changeColormap(hObject,eventdata,tool)
+        function changeColormap(hObject,~,~)
             n=get(hObject,'Value');
             maps=get(hObject,'String');
             colormap(maps{n})
         end
         
-        function exportROI(hObject,evnt,tool)
+        function exportROI(~,~,tool)
             if ~isempty(tool.currentROI)
                 if isvalid(tool.currentROI)
                     mask = createMask(tool.currentROI);
@@ -1070,7 +1070,7 @@ classdef dicomViewer < handle
             end
         end
         
-        function measureImageCallback(hObject,evnt,tool,type)
+        function measureImageCallback(~,~,tool,type)
             
             switch type
                 case 'ellipse'
@@ -1114,7 +1114,7 @@ classdef dicomViewer < handle
             
         end
         
-        function deletecurrentROI(hObject,evnt,tool)
+        function deletecurrentROI(~,~,tool)
             %if ~ISEMPTY(tool.currentROI)
                 if isvalid(tool.currentROI)
                     delete(tool.currentROI)
@@ -1124,7 +1124,7 @@ classdef dicomViewer < handle
             %end
         end
         
-        function displayHelp(hObject,evnt,tool)
+        function displayHelp(~,~,~)
             
             message={'Welcome to dicomViewer', ...
                 '',...
@@ -1138,20 +1138,20 @@ classdef dicomViewer < handle
             msgbox(message)
         end
         
-        function CropImageCallback(hObject,evnt,tool)
-            [I2 rect] = imcrop(tool.handles.Axes);
+        function CropImageCallback(~,~,tool)
+            [~, rect] = imcrop(tool.handles.Axes);
             rect=round(rect);
             setImage(tool, tool.I(rect(2):rect(2)+rect(4)-1,rect(1):rect(1)+rect(3)-1,:))
             tool.pointLog = [];
         end
         
-        function resetViewCallback(hObject,evnt,tool)
+        function resetViewCallback(~,~,tool)
             set(tool.handles.Axes,'Xlim',get(tool.handles.I,'XData'))
             set(tool.handles.Axes,'Ylim',get(tool.handles.I,'YData'))
         end
         
         % ***********************NEW***********************************************************
-        function pixelCalibrateCallback(hObject,evnt,tool)
+        function pixelCalibrateCallback(~,~,tool)
             %Select Points to Track
             uiwait(msgbox('Select two points with a know distance, then hit "Enter"'));
    
@@ -1178,7 +1178,7 @@ classdef dicomViewer < handle
                 
         end
         
-        function pixelSettingsCallback(hObject,evnt,tool)
+        function pixelSettingsCallback(~,~,tool)
             
             prompt = {'cm/pixel calibration factor:', '% of pixels analyzed (1-100%):','Frame range for accumulated strain (separated by a comma):','Mean Arterial Blood Pressure (mmHg)','Frame Rate (Hz):'};
                     dlg_title = 'Settings';
@@ -1207,7 +1207,7 @@ classdef dicomViewer < handle
                     end
         end
         
-        function pixelTrack2Callback(hObject,evnt,tool)
+        function pixelTrack2Callback(~,~,tool)
               
                     dicomFrames = size(tool.I,3);
                     newI = uint8(tool.I); 
@@ -1278,8 +1278,6 @@ classdef dicomViewer < handle
                     
                     imageViewer(newI);
                     
-                    %Initialize global variables
-                    h  = struct;
                     % Plot the tracked pixel movement in a switchable GUI
                     % Create and then hide the GUI as it is being constructed. 
                     f = figure('Visible','off','Position',[360,500,525,350]); %Left bottom width height
@@ -1319,7 +1317,7 @@ classdef dicomViewer < handle
 
                     % Pop-up menu callback. Read the pop-up menu and display property
 
-                        function popup_menu_Callback(source,eventdata) 
+                        function popup_menu_Callback(source,~) 
                             % Determine the selected data set. 
                             str = get(source, 'String'); 
                             val = get(source,'Value'); 
@@ -1345,7 +1343,7 @@ classdef dicomViewer < handle
                             end
                         end
 
-                         function drawrange_button_Callback(source,eventdata)
+                         function drawrange_button_Callback(~,~)
                                 uiwait(msgbox({'Draw line for the lower limit of the accumulated strain range' 'Double click to save positions'}));
                                 hmin = imline;
                                 pos1 = wait(hmin);
@@ -1422,7 +1420,7 @@ classdef dicomViewer < handle
                          
         end
             
-        function pixelStrainCallback(hObject,evnt,tool)
+        function pixelStrainCallback(~,~,tool)
                  tool.pointLog = tool.pointLog;
                  if (isempty(tool.pointLog))
                      msgbox('Tracking all points'); pause(1); close;
@@ -1461,7 +1459,7 @@ classdef dicomViewer < handle
                             % Simple difference
                             startFrame = 1;
                             endFrame = dicomFrames-1;
-                            for indFrames = 1:dicomFrames-1
+                            for indFrames = startFrame:endFrame
                                 pointLogDiff(:,:,indFrames) = tool.pointLog(:,:,indFrames+1) ...
                                     - tool.pointLog(:,:,indFrames);
                                     
@@ -1470,7 +1468,7 @@ classdef dicomViewer < handle
 
                     % Separate x and y differences for each point on the image
                     counter = 1;
-                    range = endFrame-startFrame+1;
+                    range = endFrame-startFrame-1;
                     for indFrame = 1:range
                         for ind = 1:pixelsYtracked:trackedPixels
                             xDiff(:,counter,indFrame) = pointLogDiff(ind:(ind+pixelsYtracked-1),1,indFrame);
@@ -1572,7 +1570,7 @@ classdef dicomViewer < handle
                  
         end
         
-        function pixelShearCallback(hObject,evnt,tool)
+        function pixelShearCallback(~,~,tool)
 %             if ~isempty(tool.currentROI)                 
 %                   if isvalid(tool.currentROI)
 %                        if (isempty(tool.pointLog))
@@ -1582,7 +1580,7 @@ classdef dicomViewer < handle
                             J = uint8(tool.I);
                             dicomFrames = size(J,3);
                             %Select Points to Track
-                            uiwait(msgbox(['Select 2 points, 1 on  the vessel edge, and 1 near the vessel center, then hit "Enter"']));
+                            uiwait(msgbox('Select 2 points, 1 on  the vessel edge, and 1 near the vessel center, then hit "Enter"'));
                             figHandle = gcf;
                             [poiX, poiY] = getpts(figHandle);
                             poiX = round(poiX);     poiY = round(poiY);
@@ -1640,7 +1638,7 @@ classdef dicomViewer < handle
                                 for ind = 1:pointsTracked
 %                                     IX = J(:,:,indFrame);                  %Frame 1
 %                                     IY = J(:,:,indFrame+1);              %Frame 2
-                                    FILT = ones(5);                           %Filter matrix
+                                    %FILT = ones(5);                           %Filter matrix
                                     KRNL_LMT = [3 3];                   %Group of pixels you're trying to find in next image
                                     SRCH_LMT = [2 2];                   %Region
                                     POS = round(points(ind,:,indFrame));  %Origin of krnl and srch
@@ -1708,13 +1706,13 @@ classdef dicomViewer < handle
 
         end
         
-        function pixelWallCallback(hObject,evnt,tool)
+        function pixelWallCallback(~,~,tool)
             %Wall Strain
             J = uint8(tool.I);
            dicomFrames = size(tool.I,3);
 
             %Select Points to Track
-            uiwait(msgbox(['Select 2 points, 1 on  the vessel edge, and 1 near the vessel center, then hit "Enter"']));
+            uiwait(msgbox('Select 2 points, 1 on  the vessel edge, and 1 near the vessel center, then hit "Enter"'));
             figHandle = gcf;
             [poiX, poiY] = getpts(figHandle);
             poiX = round(poiX);     poiY = round(poiY);
@@ -1780,10 +1778,10 @@ classdef dicomViewer < handle
             title('Wall Strain')            
         end
         
-        function pixelEdgeCallback(hObject,evnt,tool)
+        function pixelEdgeCallback(~,~,tool)
             if ~isempty(tool.currentROI)                 
                   if isvalid(tool.currentROI)
-                       imageROI = tool.currentROI;
+                       %imageROI = tool.currentROI;
                        disp(tool.currentROI);
                       % GRAYTHRESH EDGE DETECT
                         indFrame = 1;
@@ -1816,49 +1814,12 @@ classdef dicomViewer < handle
 
         end
         
-        function pixelMotionCallback(hObject,evnt,tool)
-                    
-                    dicomFrames = size(tool.I, 3);
-                    dicomSize = size(tool.I);
-
-                    newI = uint8(tool.I);
-                    J = uint8(tool.I);
-
-                    % Get region of interest
-                    framenum = 1;
-                    objectFrame = J(:,:,framenum);
-                    objectRegion = [0 0 dicomSize(1) dicomSize(2)];
-
-                    %Assign motion vector functions
-                    converter = vision.ImageDataTypeConverter; 
-                    shapeInserter = vision.ShapeInserter('Shape','Lines',...
-                        'BorderColor','Custom', 'CustomBorderColor', 255);
-
-                    % Track the movement of the image. This is the key function to understand here
-                    opticalFlow = vision.OpticalFlow('ReferenceFrameDelay', 1);
-                    opticalFlow.OutputValue = ...
-                        'Horizontal and vertical components in complex form';
-
-                    while framenum < dicomFrames
-                        framenum = framenum + 1;
-                        frame = J(:,:,framenum);
-                        im = step(converter, frame);
-                        of = step(opticalFlow, im);
-                        lines = videooptflowlines(of, 10);  %(velocity value, scale factor)
-                        if ~isempty(lines)
-                          out =  step(shapeInserter, im, lines); 
-                          newI(:,:,framenum) = out(:,:,1);
-                        end
-                    end
-                    imageViewer(newI);                  
-        end
-              
     end
     
     
 end
 
-function newLowerRangePosition(src,evnt,hObject,tool)
+function newLowerRangePosition(~,~,hObject,tool)
 cp = get(hObject,'CurrentPoint'); cp=[cp(1,1) cp(1,2)];
 range=get(tool.handles.Axes,'Clim');
 Xlims=get(hObject,'Xlim');
@@ -1870,7 +1831,7 @@ if W>0 && range(1)>=Xlims(1)
 end
 end
 
-function newUpperRangePosition(src,evnt,hObject,tool)
+function newUpperRangePosition(~,~,hObject,tool)
 cp = get(hObject,'CurrentPoint'); cp=[cp(1,1) cp(1,2)];
 range=get(tool.handles.Axes,'Clim');
 Xlims=get(hObject,'Xlim');
@@ -1882,7 +1843,7 @@ if W>0 && range(2)<=Xlims(2)
 end
 end
 
-function newLevelRangePosition(src,evnt,hObject,tool)
+function newLevelRangePosition(~,~,hObject,tool)
 cp = get(hObject,'CurrentPoint'); cp=[cp(1,1) cp(1,2)];
 range=get(tool.handles.Axes,'Clim');
 Xlims=get(hObject,'Xlim');
@@ -1893,7 +1854,7 @@ if L>=Xlims(1) && L<=Xlims(2)
 end
 end
 
-function newROIposition(pos,hObject,tool)
+function newROIposition(~,hObject,tool)
 handlesROI=tool.handlesROI;
 for i=1:length(handlesROI)
     if isvalid(handlesROI{i})
@@ -1909,9 +1870,9 @@ set(tool.handles.ROIinfo,'String',['STD:' num2str(noise,'%+.4f') '   Mean:' num2
 tool.currentROI=hObject;
 end
 
-function adjustContrastMouse(src,evnt,bp,hObject,tool,W,L)
+function adjustContrastMouse(~,~,dp,hObject,tool,W,L)
 cp = get(hObject,'CurrentPoint'); cp=[cp(1,1) cp(1,2)];
-d=round(cp-bp);
+d=round(cp-dp);
 W2=W+d(1); L=L-d(2);
 if W2>=1
     W=W2;
@@ -1919,9 +1880,9 @@ end
 setWL(tool,W,L)
 end
 
-function adjustZoomMouse(src,evnt,bp,hObject,tool)
+function adjustZoomMouse(~,~,dp,hObject,tool)
 cp = get(hObject,'CurrentPoint'); cp=[cp(1,1) cp(1,2)];
-d=cp(2)-bp(2);
+d=cp(2)-dp(2);
 zFactor=.025;
 if d>0
     zoom(1+zFactor)
@@ -1934,20 +1895,20 @@ axis fill
 
 end
 
-function adjustPanMouse(src,evnt,bp,hObject,xlims,ylims)
+function adjustPanMouse(~,~,bp,hObject,xlims,ylims)
 cp = get(hObject,'CurrentPoint'); cp=[cp(1,1) cp(1,2)];
 d=(bp-cp)/1.25;
 set(hObject,'Xlim',xlims+d(1),'Ylim',ylims+d(2))
 end
 
-function buttonUpFunction(src,evnt,tool)
+function buttonUpFunction(src,~,tool)
 
 fun=@(src,evnt)getImageInfo(src,evnt,tool);
 set(src,'WindowButtonMotionFcn',fun);
 
 end
 
-function getImageInfo(src,evnt,tool)
+function getImageInfo(~,~,tool)
 pos=round(get(tool.handles.Axes,'CurrentPoint'));
 pos=pos(1,1:2);
 Xlim=get(tool.handles.Axes,'Xlim');
@@ -1966,7 +1927,7 @@ end
 
 end
 
-function panelResizeFunction(hObject,events,tool,w,h,wbutt)
+function panelResizeFunction(~,~,tool,w,h,~)
 units=get(tool.handles.Panels.Large,'Units');
 set(tool.handles.Panels.Large,'Units','Pixels')
 pos=get(tool.handles.Panels.Large,'Position');
@@ -1983,8 +1944,8 @@ set(tool.handles.Panels.ROItools,'Position',[pos(3)-2.8*w  w 2.8*w pos(4)-2*w])
 set(tool.handles.Panels.Slider,'Position',[0 w w pos(4)-2*w])
 set(tool.handles.Panels.Info,'Position',[0 0 pos(3) w])
 axis(tool.handles.Axes,'fill');
-buff=(w-wbutt)/2;
-pos=get(tool.handles.Panels.ROItools,'Position');
+%buff=(w-wbutt)/2;
+%pos=get(tool.handles.Panels.ROItools,'Position');
 
 
 end
@@ -2043,7 +2004,7 @@ end
 
 end
 
-function saveImage(hObject,evnt,tool)
+function saveImage(~,~,tool)
 cmap = colormap;
 switch get(tool.handles.Tools.SaveOptions,'value')
     case 1 %Save just the current slice
@@ -2076,7 +2037,7 @@ switch get(tool.handles.Tools.SaveOptions,'value')
 end
 end
 
-function exportCallback(hObject,evnt,tool)
+function exportCallback(~,~,tool)
      
     f = figure('Visible','off','Position',[360,500,320,280],'NumberTitle', 'off','ToolBar','none','MenuBar','none','Name','Edit/Export Data');
     
@@ -2097,7 +2058,7 @@ function exportCallback(hObject,evnt,tool)
            'String', num2str(tool.bp), 'Position', [140  80 120 20]);
     hrText = uicontrol('Style', 'edit','FontSize', 10,...
            'String', num2str(tool.hRate), 'Position', [140 60 120 20]);
-       
+
      patientIDHeader = uicontrol('Style', 'text','FontSize', 10,'HorizontalAlignment','left',...
            'String', 'Patient ID:', 'Position', [10 240 128 20], 'BackgroundColor', [.8,.8,.8]);
      dicomFileHeader = uicontrol('Style', 'text','FontSize', 10,'HorizontalAlignment','left',...
@@ -2143,18 +2104,21 @@ function exportCallback(hObject,evnt,tool)
     
     % Assign the GUI a name to appear in the window title. 
     set(f,'Name','Edit or Export Data')
+     set([f, patientIDText, dicomFileText, locationText, diameterText, distensibilityText, elasticityText, mapText, hrText,...
+              patientIDHeader, dicomFileHeader, locationHeader, diameterHeader, distensibilityHeader, elasticityHeader, mapHeader, hrHeader,...
+              diameterUnits, distensibilityUnits, elasticityUnits, mapUnits, hrUnits, Export, Ok, Cancel, pulsgraph,elastgraph],'Units','normalized');
     
     % Move the GUI to the center of the screen. 
     movegui(f,'center')
     % Make the GUI visible. 
     set(f,'Visible','on','Resize','off');
     
-    function Cancel_callback(hObject,callbackdata)
+    function Cancel_callback(~,~)
           disp('Cancel')
           %Closes window without saving changes
           close;
     end
-    function OK_callback(hObject,callbackdata)
+    function OK_callback(~,~)
           disp('OK')
           choice = questdlg('Are you sure you want to overwrite data?', ...
                 'Warning', ...
@@ -2177,7 +2141,7 @@ function exportCallback(hObject,evnt,tool)
             end
     end
 
-    function Export_callback(hObject,callbackdata)
+    function Export_callback(~,~)
           disp('Export')
           %Exports data to excel
           patientID = cellstr(get(patientIDText, 'String'));
@@ -2221,7 +2185,7 @@ function exportCallback(hObject,evnt,tool)
 end
         
 
-function ShowHistogram(hObject,evnt,tool,w,h)
+function ShowHistogram(~,~,tool,w,h)
 set(tool.handles.Panels.Large,'Units','Pixels')
 pos=get(tool.handles.Panels.Large,'Position');
 set(tool.handles.Panels.Large,'Units','normalized')
