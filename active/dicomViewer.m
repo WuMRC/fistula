@@ -1187,6 +1187,7 @@ classdef dicomViewer < handle
                     pixels = num2str(tool.pixelDensity);
                     oldpixels = tool.pixelDensity;
                     accRange = strcat([num2str((tool.accFrames(1))),',',num2str((tool.accFrames(2)))]);
+                    oldRange = tool.accFrames;
                     bloodp = num2str(tool.bp);
                     frameRate = num2str(tool.fRate);
                     %accRange = '1,10';
@@ -1202,7 +1203,7 @@ classdef dicomViewer < handle
                         tool.bp = str2num(answer{4,1});
                         tool.fRate = str2num(answer{5,1});
                     end
-                    if oldpixels ~= tool.pixelDensity
+                    if oldpixels ~= tool.pixelDensity || oldRange ~= tool.accRAnge
                         tool.pointLog = [];
                     end
         end
@@ -1485,7 +1486,10 @@ classdef dicomViewer < handle
                 
                          function TrackAll(tool)
 
-                            dicomFrames = size(tool.I,3);
+                            
+                            firstFrame = tool.accFrames(1); disp(firstFrame)
+                            lastFrame = tool.accFrames(2); disp(lastFrame)
+                            dicomFrames = lastFrame - firstFrame + 1;
                             newI = uint8(tool.I); 
                             J = uint8(tool.I);
                             if ~isempty(tool.currentROI)                 
@@ -1516,13 +1520,11 @@ classdef dicomViewer < handle
                                 offsetX = .0001; offsetY = .0001;   
                             end
                             % Find pixel spacing using pixel density factor (tool.pixelDensity)
-                            pixelsBetweenX = (pixelsX-1)/round((pixelsX-1)*tool.pixelDensity/100); disp(pixelsBetweenX)
-                            pixelsBetweenY = (pixelsY-1)/round((pixelsY-1)*tool.pixelDensity/100); disp(pixelsBetweenY)
+                            pixelsBetweenX = (pixelsX-1)/round((pixelsX-1)*tool.pixelDensity/100); 
+                            pixelsBetweenY = (pixelsY-1)/round((pixelsY-1)*tool.pixelDensity/100); 
                             count = 1;
                             countX = 1+offsetX;
                             % We get a grid that is %PixelDensity^2*(pixelsX*pixelsY)
-                            disp([pixelsX pixelsY])
-                            disp(100*pixelsX*pixelsY)
                             points = zeros(1,2);
                             while countX <= pixelsX+offsetX
                                 countY=1+offsetY;
@@ -1535,28 +1537,29 @@ classdef dicomViewer < handle
                             end
                             nPoints = count - 1;
                             tool.pointLog = zeros(nPoints, 2, dicomFrames);
-                            framenum = 1;
-                            objectFrame = newI(:,:,1);
+                            framenum = firstFrame;
+                            objectFrame = newI(:,:,firstFrame);
                             pointImage = insertMarker(objectFrame, points, '+', 'Color', 'white');
-                            newI(:,:,1) = pointImage(:,:,1);
+                            newI(:,:,firstFrame) = pointImage(:,:,1);
                             quality = ones(1,dicomFrames);
                             % Create object tracker
                             tracker = vision.PointTracker('MaxBidirectionalError', 3);
-
+                            i = 1;
                             % Initialize object tracker
                             initialize(tracker, points(:,:,1), objectFrame);
                             h = waitbar(0,'Running pixel tracker...');
                             % Show the points getting tracked
-                            while framenum < dicomFrames
+                            while framenum < lastFrame 
                                  %Track the points     
                                   frame =J(:,:,framenum);
                                   [points, validity] = step(tracker, frame);
-                                  tool.pointLog(:,:,framenum) = points;
+                                  tool.pointLog(:,:,i) = points;
                                   out = insertMarker(frame, points(validity, :), '+', 'Color', 'white');
-                                  framenum = framenum + 1;
-                                  quality(framenum) = sum(validity)/length(validity);
+                                  framenum = framenum + 1;  i = i +1;
+                                  quality(i) = sum(validity)/length(validity);
                                   newI(:,:,framenum) = out(:,:,1);
-                                  waitbar(framenum/dicomFrames)   
+
+                                  waitbar(i/dicomFrames)
                             end
                             close(h)
                             imageViewer(newI);
