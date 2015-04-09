@@ -1203,7 +1203,7 @@ classdef dicomViewer < handle
                         tool.bp = str2num(answer{4,1});
                         tool.fRate = str2num(answer{5,1});
                     end
-                    if oldpixels ~= tool.pixelDensity || oldRange ~= tool.accRAnge
+                    if oldpixels ~= tool.pixelDensity | oldRange ~= tool.accFrames
                         tool.pointLog = [];
                     end
         end
@@ -1442,47 +1442,118 @@ classdef dicomViewer < handle
                          pixelsX =size(tool.I,2); pixelsY = size(tool.I,1);    
                      end
                       
-                    pixelsXtracked = round(pixelsX*tool.pixelDensity/100)+1;
-                    pixelsYtracked = round(pixelsY*tool.pixelDensity/100)+1;
+                    pixelsXtracked = round(pixelsX*tool.pixelDensity/100);
+                    pixelsYtracked = round(pixelsY*tool.pixelDensity/100);
                     trackedPixels = pixelsXtracked*pixelsYtracked;
+                    disp([pixelsXtracked pixelsYtracked])
+                    
+                    startFrame = 1;
+                    endFrame = size(tool.pointLog,3);
                     
                     switch choice
                        case 'Accumulated'
-                           startFrame = tool.accFrames(1);
-                           endFrame = tool.accFrames(2)-1;
                            count = 1;
-                           for indFrames = startFrame:endFrame
+                           for indFrames = startFrame:endFrame-1
                                     pointLogDiff(:,:,count) = tool.pointLog(:,:,indFrames+1) ...
                                     - tool.pointLog(:,:,startFrame); 
                                     count = count+1;
                            end
-                       case 'Frame to Frame'
+                            %Separate x and y differences for each point on the image
+                            counter = 1;
+                            for indFrame = startFrame:endFrame-1
+                                for ind = 1:pixelsYtracked:trackedPixels
+                                    xDiff(:,counter,indFrame) = pointLogDiff(ind:(ind+pixelsYtracked-1),1,indFrame);
+                                    yDiff(:,counter,indFrame) = pointLogDiff(ind:(ind+pixelsYtracked-1),2,indFrame);
+                                    counter = counter+1;
+                                end
+                                counter = 1;
+                            end
+                            totalDiff = sqrt(xDiff.^2 + yDiff.^2);
+                            disp([max(max(totalDiff)) mean(mean(totalDiff))])
+%                             for ind =startFrame:endFrame-1
+%                                 totalDiff(:,:,ind) = 205.*totalDiff(:,:,ind)./max(max(max(totalDiff)));
+%                             end
+
+                            imageViewer(totalDiff);
+                       case 'OldFrame to Frame'
                             % Simple difference
-                            startFrame = 1;
-                            endFrame = dicomFrames-1;
                             for indFrames = startFrame:endFrame
                                 pointLogDiff(:,:,indFrames) = tool.pointLog(:,:,indFrames+1) ...
-                                    - tool.pointLog(:,:,indFrames);
-                                    
+                                    - tool.pointLog(:,:,indFrames);       
                             end
+                        case 'Frame to Frame'
+                           disp(size(tool.pointLog))
+                           counter = 1;
+                           for indFrames = startFrame:endFrame
+                                 for ind = 1:pixelsYtracked:trackedPixels
+                                    xMatrix(:,counter,indFrames) = tool.pointLog(ind:(ind+pixelsYtracked-1),1,indFrames);
+                                    yMatrix(:,counter,indFrames) = tool.pointLog(ind:(ind+pixelsYtracked-1),2,indFrames);
+                                    counter = counter+1;
+                                 end
+                                 counter = 1;
+                           end
+                           %areas = zeros;
+                           e_xy = zeros; e_xx = zeros; e_yy = zeros;
+                           xLengths = zeros; yLengths = zeros; theta = zeros;
+                           for indFrames = startFrame:endFrame
+                               for i = 1:(size(xMatrix,1)-1)
+                                   for j = 1:(size(xMatrix,2)-1)
+                                       %Find the length in the x and y directions                              
+                                       xLengths(i,j,indFrames) = .5*(xMatrix(i+1,j,indFrames)+xMatrix(i+1,j+1,indFrames)-xMatrix(i,j,indFrames)-xMatrix(i,j+1,indFrames));
+                                       yLengths(i,j,indFrames) = .5*(yMatrix(i+1,j,indFrames)+yMatrix(i+1,j+1,indFrames)-yMatrix(i,j,indFrames)-yMatrix(i,j+1,indFrames));
+                                       
+                                       areas(i,j,indFrames) = polyarea([xMatrix(i:i+1,j,indFrames), xMatrix(i:i+1,j+1,indFrames)],[yMatrix(i:i+1,j,indFrames), yMatrix(i:i+1,j+1,indFrames)]);
+                                       
+                                       %Find shear strain from change in angle
+                                       %dU = [xMatrix(i+1,j+1,indFrames)-xMatrix(i,j+1,indFrames) yMatrix(i+1,j+1,indFrames)-yMatrix(i,j+1,indFrames)];
+                                       %dV = [xMatrix(i,j,indFrames)-xMatrix(i,j+1,indFrames) yMatrix(i,j,indFrames)-yMatrix(i,j+1,indFrames)];
+                                       %cosTheta = dot(dU,dV) ./ (norm(dU) * norm(dV));
+                                       %theta(i,j,indFrames) = acos(cosTheta);
+                                       
+                                       %Find normal and shear strains
+                                       if indFrames > startFrame
+                                           e_xx(i,j,indFrames) = (xLengths(i,j,indFrames)-xLengths(i,j,indFrames-1))/xLengths(i,j,indFrames-1);
+                                           e_yy(i,j,indFrames) = (yLengths(i,j,indFrames)-yLengths(i,j,indFrames-1))/yLengths(i,j,indFrames-1);
+                                           %e_xy(i,j,indFrames) = theta(i,j,indFrames-1) - theta(i,j,indFrames);
+                                            e_xx(i,j,indFrames) = areas(i,j,indFrames) - areas(i,j,indFrames-1);
+                                            e_yy(i,j,indFrames) = 0;
+                                       end
+                                   end
+                               end
+                           end
+                           for indFrames = startFrame+1:endFrame
+                               %Find principal strains (for intensity)
+                               e_1(:,:,indFrames) = .5*(e_xx(:,:,indFrames) + e_yy(:,:,indFrames)) + sqrt((.5*e_xx(:,:,indFrames).^2+.5*e_yy(:,:,indFrames)).^2); %+ (e_xy(:,:,indFrames)/2).^2
+                               e_2(:,:,indFrames) = .5*(e_xx(:,:,indFrames) + e_yy(:,:,indFrames)) -  sqrt((.5*e_xx(:,:,indFrames).^2+.5*e_yy(:,:,indFrames)).^2 ); % + (e_xy(:,:,indFrames)/2).^2
+                           end
+                           %Determine which principal strain is the
+                           %largest, then assign that as the strain value
+                           %for the region
+                           strain = zeros;
+                           for indFrames = startFrame+1:endFrame
+                               for i = 1:(size(xMatrix,1)-1)
+                                   for j = 1:(size(xMatrix,2)-1)
+                                       if isnan(e_1(i,j,indFrames)) || isinf(e_1(i,j,indFrames)) || isnan(e_2(i,j,indFrames)) || isinf(e_2(i,j,indFrames))
+                                           strain(i,j,indFrames-1) = 0;
+                                       elseif abs(e_1(i,j,indFrames)) >= abs(e_2(i,j,indFrames))
+                                           strain(i,j,indFrames-1) = e_1(i,j,indFrames);
+                                       else
+                                           strain(i,j,indFrames-1) = e_2(i,j,indFrames);
+                                       end
+                                   end
+                              end
+                           end
+                           strain = strain - min(min(min(strain)));
+                           %disp([min(min((strain))) max(max((strain)))])
+                           disp(size(strain))
+                           disp([max(max(strain(:,:,5:10))), mean(mean(strain(:,:,5:10)))])
+%                            for indFrames = startFrame:endFrame-1
+%                                        strain(:,:,indFrames) = 200.*strain(:,:,indFrames)./max(max((strain(:,:,indFrames))));
+%                            end
+                           
+                            imageViewer(strain);
                     end
 
-                    % Separate x and y differences for each point on the image
-                    counter = 1;
-                    range = endFrame-startFrame-1;
-                    for indFrame = 1:range
-                        for ind = 1:pixelsYtracked:trackedPixels
-                            xDiff(:,counter,indFrame) = pointLogDiff(ind:(ind+pixelsYtracked-1),1,indFrame);
-                            yDiff(:,counter,indFrame) = pointLogDiff(ind:(ind+pixelsYtracked-1),2,indFrame);
-                            counter = counter+1;
-                        end
-                        counter = 1;
-                    end
-                    totalDiff = sqrt(xDiff.^2 + yDiff.^2);
-                    for ind =1:range
-                        totalDiff(:,:,ind) = imadjust(totalDiff(:,:,ind));
-                    end
-                    imageViewer(totalDiff);
                 
                          function TrackAll(tool)
 
@@ -1544,31 +1615,31 @@ classdef dicomViewer < handle
                             quality = ones(1,dicomFrames);
                             % Create object tracker
                             tracker = vision.PointTracker('MaxBidirectionalError', 3);
-                            i = 1;
+                            ii = 1;
                             % Initialize object tracker
                             initialize(tracker, points(:,:,1), objectFrame);
                             h = waitbar(0,'Running pixel tracker...');
                             % Show the points getting tracked
-                            while framenum < lastFrame 
+                            while framenum <= lastFrame 
                                  %Track the points     
                                   frame =J(:,:,framenum);
                                   [points, validity] = step(tracker, frame);
-                                  tool.pointLog(:,:,i) = points;
+                                  tool.pointLog(:,:,ii) = points;
                                   out = insertMarker(frame, points(validity, :), '+', 'Color', 'white');
-                                  framenum = framenum + 1;  i = i +1;
-                                  quality(i) = sum(validity)/length(validity);
+                                  framenum = framenum + 1;  ii = ii +1;
+                                  quality(ii) = sum(validity)/length(validity);
                                   newI(:,:,framenum) = out(:,:,1);
 
-                                  waitbar(i/dicomFrames)
+                                  waitbar(ii/dicomFrames)
                             end
                             close(h)
-                            imageViewer(newI);
+                            %imageViewer(newI);
                             frames = (1:dicomFrames);
                             quality = quality*100;
-                             figure;
-                             plot(frames, quality)
-                             xlabel('Frames'); ylabel('% of Points Tracked')
-                             title('Tracking Quality')
+                             %figure;
+                             %plot(frames, quality)
+                             %xlabel('Frames'); ylabel('% of Points Tracked')
+                             %title('Tracking Quality')
                          end
                  
         end
