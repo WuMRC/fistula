@@ -1,4 +1,4 @@
-classdef dicomViewer < handle
+classdef VUESR < handle
     %This is a image slice viewer with built in scroll, contrast, zoom and
     %ROI tools.
     %
@@ -27,27 +27,27 @@ classdef dicomViewer < handle
     %----------------------------------------------------------------------
     %Output:
     %
-    %   tool        The dicomViewer object. Use this object as input to the
+    %   tool        The VUESR object. Use this object as input to the
     %               class methods described below.
     %----------------------------------------------------------------------
     %Constructor Syntax
     %
-    %tool = dicomViewer() creates an dicomViewer panel in the current figure with
-    %a random noise image. Returns the dicomViewer object.
+    %tool = VUESR() creates an VUESR panel in the current figure with
+    %a random noise image. Returns the VUESR object.
     %
-    %tool = dicomViewer(I) sets the image of the dicomViewer panel.
+    %tool = VUESR(I) sets the image of the VUESR panel.
     %
-    %tool = dicomViewer(I,position) sets the position of the dicomViewer panel
+    %tool = VUESR(I,position) sets the position of the VUESR panel
     %within the current figure. The default units are normalized.
     %
-    %tool = dicomViewer(I,position,h) puts the dicomViewer panel in the figure
+    %tool = VUESR(I,position,h) puts the VUESR panel in the figure
     %specified by the handle h.
     %
-    %tool = dicomViewer(I,position,h,range) sets the display range of the
+    %tool = VUESR(I,position,h,range) sets the display range of the
     %image according to range=[min max].
     %
     %Note that you can pass an empty matrix for any input variable to have
-    %the constructor use default values. ex. tool=dicomViewer([],[],h,[]).
+    %the constructor use default values. ex. tool=VUESR([],[],h,[]).
     %----------------------------------------------------------------------
     %Methods:
     %
@@ -68,7 +68,7 @@ classdef dicomViewer < handle
     %
     %   handles = getHandles(tool) returns a structured variable, handles,
     %   which contains all the handles to the various objects used by
-    %   dicomViewer.
+    %   VUESR.
     %
     %   setDisplayRange(tool,range) sets the display range of the image.
     %   see the 'Clim' property of an Axes object for details.
@@ -131,12 +131,12 @@ classdef dicomViewer < handle
     
     methods
         
-        function tool = dicomViewer(varargin)  %Constructor
+        function tool = VUESR(varargin)  %Constructor
             %%
             %Check the inputs and set things appropriately
             tool.fName = [];
             switch nargin
-                case 0  %tool = dicomViewer()
+                case 0  %tool = VUESR()
                     [fileName, filePath] = uigetfile('*.DCM;*.dcm;*.mat;*', ...
                         'Choose DICOM images to import', pwd, ...
                         'MultiSelect', 'off');
@@ -153,7 +153,7 @@ classdef dicomViewer < handle
                             tool.I = permute(image_change,[1 2 4 3]);
                         end
                         position=[0, 0, 1, 1];
-                        heightHistogram=  figure('Position', [400 200 600 600],'Name','VUESR Toolbox','NumberTitle','off');
+                        heightHistogram=  figure('Position', [400 200 600 600],'Name','VUESR Imaging Toolbox v1.0','NumberTitle','off');
                         set(heightHistogram,'Toolbar','none','Menubar','none');
 %                         numFrames = tool.dicomsize(3);
 %                         %Adjust image
@@ -165,22 +165,22 @@ classdef dicomViewer < handle
                         pixelValueRange = [min(tool.I(:)), max(tool.I(:))];
                         tool.fName = fileName;
                     end
-                case 1  %tool = dicomViewer(I)
+                case 1  %tool = VUESR(I)
                     tool.I = varargin{1}; position=[0 0 1 1];
                     heightHistogram= figure('Position', [400 200 600 600]);
                     set(heightHistogram,'Toolbar','none','Menubar','none')
                     pixelValueRange = [min(tool.I(:)), max(tool.I(:))];
-                case 2  %tool = dicomViewer(I,position)
+                case 2  %tool = VUESR(I,position)
                     tool.I=varargin{1}; position=varargin{2};
                     heightHistogram=figure;
                     set(heightHistogram,'Toolbar','none','Menubar','none')
                     pixelValueRange=[min(tool.I(:)), max(tool.I(:))];
-                case 3  %tool = dicomViewer(I,position,h)
+                case 3  %tool = VUESR(I,position,h)
                     tool.I=varargin{1};
                     position=varargin{2};
                     heightHistogram=varargin{3};
                     pixelValueRange=[min(tool.I(:)), max(tool.I(:))];
-                case 4  %tool = dicomViewer(I,position,h,range)
+                case 4  %tool = VUESR(I,position,h,range)
                     tool.I=varargin{1};
                     position=varargin{2};
                     heightHistogram=varargin{3};
@@ -716,7 +716,7 @@ classdef dicomViewer < handle
                 'Style','pushbutton',...
                 'String','Help',...
                 'Position',[buff, buff+14*widthSidePanel, 3.5*widthSidePanel, widthSidePanel],...
-                'TooltipString','Help with dicomViewer');
+                'TooltipString','Help with VUESR');
             fun = @(hObject,evnt) displayHelp(hObject,evnt,tool);
             set(tool.handles.Tools.Help,'Callback',fun)
                       
@@ -1126,7 +1126,7 @@ classdef dicomViewer < handle
         
         function displayHelp(~,~,~)
             
-            message={'Welcome to dicomViewer', ...
+            message={'Welcome to VUESR', ...
                 '',...
                 'Left Mouse Button: Window and Level', ...
                 'Right Mouse Button: Pan', ...
