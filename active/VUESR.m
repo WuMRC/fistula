@@ -1429,7 +1429,7 @@ classdef VUESR < handle
                  end
                    dicomFrames = size(tool.I,3);
                    choice = questdlg('Which type of strain would you like to display?', ...
-                        'Select strain type', 'Accumulated','Frame to Frame','Frame to Frame');
+                        'Select strain type', 'Estimated','Actual','Actual');
                    
                     if ~isempty(tool.currentROI)                 
                                   if isvalid(tool.currentROI)
@@ -1445,13 +1445,12 @@ classdef VUESR < handle
                     pixelsXtracked = round(pixelsX*tool.pixelDensity/100);
                     pixelsYtracked = round(pixelsY*tool.pixelDensity/100);
                     trackedPixels = pixelsXtracked*pixelsYtracked;
-                    disp([pixelsXtracked pixelsYtracked])
                     
                     startFrame = 1;
                     endFrame = size(tool.pointLog,3);
                     
                     switch choice
-                       case 'Accumulated'
+                       case 'Estimated'
                            count = 1;
                            for indFrames = startFrame:endFrame-1
                                     pointLogDiff(:,:,count) = tool.pointLog(:,:,indFrames+1) ...
@@ -1469,7 +1468,7 @@ classdef VUESR < handle
                                 counter = 1;
                             end
                             totalDiff = sqrt(xDiff.^2 + yDiff.^2);
-                            disp([max(max(totalDiff)) mean(mean(totalDiff))])
+                            %disp([max(max(totalDiff)) mean(mean(totalDiff))])
 %                             for ind =startFrame:endFrame-1
 %                                 totalDiff(:,:,ind) = 205.*totalDiff(:,:,ind)./max(max(max(totalDiff)));
 %                             end
@@ -1481,8 +1480,8 @@ classdef VUESR < handle
                                 pointLogDiff(:,:,indFrames) = tool.pointLog(:,:,indFrames+1) ...
                                     - tool.pointLog(:,:,indFrames);       
                             end
-                        case 'Frame to Frame'
-                           disp(size(tool.pointLog))
+                        case 'Actual'
+
                            counter = 1;
                            for indFrames = startFrame:endFrame
                                  for ind = 1:pixelsYtracked:trackedPixels
@@ -1498,33 +1497,33 @@ classdef VUESR < handle
                            for indFrames = startFrame:endFrame
                                for i = 1:(size(xMatrix,1)-1)
                                    for j = 1:(size(xMatrix,2)-1)
-                                       %Find the length in the x and y directions                              
-                                       xLengths(i,j,indFrames) = .5*(xMatrix(i+1,j,indFrames)+xMatrix(i+1,j+1,indFrames)-xMatrix(i,j,indFrames)-xMatrix(i,j+1,indFrames));
-                                       yLengths(i,j,indFrames) = .5*(yMatrix(i+1,j,indFrames)+yMatrix(i+1,j+1,indFrames)-yMatrix(i,j,indFrames)-yMatrix(i,j+1,indFrames));
-                                       
-                                       areas(i,j,indFrames) = polyarea([xMatrix(i:i+1,j,indFrames), xMatrix(i:i+1,j+1,indFrames)],[yMatrix(i:i+1,j,indFrames), yMatrix(i:i+1,j+1,indFrames)]);
+                                       %Find the change in area to approximate normal strain                              
+                                       %xLengths(i,j,indFrames) = .5*(xMatrix(i+1,j,indFrames)+xMatrix(i+1,j+1,indFrames)-xMatrix(i,j,indFrames)-xMatrix(i,j+1,indFrames));
+                                       %yLengths(i,j,indFrames) = .5*(yMatrix(i+1,j,indFrames)+yMatrix(i+1,j+1,indFrames)-yMatrix(i,j,indFrames)-yMatrix(i,j+1,indFrames));
+                                       areas(i,j,indFrames) = polyarea([xMatrix(i,j:j+1,indFrames), xMatrix(i+1,j+1,indFrames), xMatrix(i+1,j,indFrames)],[yMatrix(i,j:j+1,indFrames), yMatrix(i+1,j:j+1,indFrames)]);
                                        
                                        %Find shear strain from change in angle
-                                       %dU = [xMatrix(i+1,j+1,indFrames)-xMatrix(i,j+1,indFrames) yMatrix(i+1,j+1,indFrames)-yMatrix(i,j+1,indFrames)];
-                                       %dV = [xMatrix(i,j,indFrames)-xMatrix(i,j+1,indFrames) yMatrix(i,j,indFrames)-yMatrix(i,j+1,indFrames)];
-                                       %cosTheta = dot(dU,dV) ./ (norm(dU) * norm(dV));
-                                       %theta(i,j,indFrames) = acos(cosTheta);
+                                       dU = [xMatrix(i+1,j+1,indFrames)-xMatrix(i,j+1,indFrames) yMatrix(i+1,j+1,indFrames)-yMatrix(i,j+1,indFrames)];
+                                       dV = [xMatrix(i,j,indFrames)-xMatrix(i,j+1,indFrames) yMatrix(i,j,indFrames)-yMatrix(i,j+1,indFrames)];
+                                       cosTheta = dot(dU,dV) ./ (norm(dU) * norm(dV));
+                                       theta(i,j,indFrames) = acos(cosTheta);
                                        
                                        %Find normal and shear strains
-                                       if indFrames > startFrame
-                                           e_xx(i,j,indFrames) = (xLengths(i,j,indFrames)-xLengths(i,j,indFrames-1))/xLengths(i,j,indFrames-1);
-                                           e_yy(i,j,indFrames) = (yLengths(i,j,indFrames)-yLengths(i,j,indFrames-1))/yLengths(i,j,indFrames-1);
-                                           %e_xy(i,j,indFrames) = theta(i,j,indFrames-1) - theta(i,j,indFrames);
-                                            e_xx(i,j,indFrames) = areas(i,j,indFrames) - areas(i,j,indFrames-1);
-                                            e_yy(i,j,indFrames) = 0;
-                                       end
+                                           %e_xx(i,j,indFrames) = (xLengths(i,j,indFrames)-xLengths(i,j,indFrames-1))/xLengths(i,j,indFrames-1);
+                                           %e_yy(i,j,indFrames) = (yLengths(i,j,indFrames)-yLengths(i,j,indFrames-1))/yLengths(i,j,indFrames-1);
+                                           e_xy(i,j,indFrames) = theta(i,j,indFrames) - theta(i,j,1);
+                                           e_xx(i,j,indFrames) = (areas(i,j,indFrames) - areas(i,j,1))./(areas(i,j,1));
+                                           e_yy(i,j,indFrames) = 0;
+                                       
                                    end
                                end
                            end
+                           %disp ([max(max(e_xy(:,:,1:10)))  min(min(e_xy(:,:,1:10)))])
+                           
                            for indFrames = startFrame+1:endFrame
                                %Find principal strains (for intensity)
-                               e_1(:,:,indFrames) = .5*(e_xx(:,:,indFrames) + e_yy(:,:,indFrames)) + sqrt((.5*e_xx(:,:,indFrames).^2+.5*e_yy(:,:,indFrames)).^2); %+ (e_xy(:,:,indFrames)/2).^2
-                               e_2(:,:,indFrames) = .5*(e_xx(:,:,indFrames) + e_yy(:,:,indFrames)) -  sqrt((.5*e_xx(:,:,indFrames).^2+.5*e_yy(:,:,indFrames)).^2 ); % + (e_xy(:,:,indFrames)/2).^2
+                               e_1(:,:,indFrames) = .5*(e_xx(:,:,indFrames) + e_yy(:,:,indFrames)) + sqrt((.5*e_xx(:,:,indFrames).^2+.5*e_yy(:,:,indFrames)).^2 + (e_xy(:,:,indFrames)/2).^2); %
+                               e_2(:,:,indFrames) = .5*(e_xx(:,:,indFrames) + e_yy(:,:,indFrames)) -  sqrt((.5*e_xx(:,:,indFrames).^2+.5*e_yy(:,:,indFrames)).^2 + (e_xy(:,:,indFrames)/2).^2 ); % 
                            end
                            %Determine which principal strain is the
                            %largest, then assign that as the strain value
@@ -1536,20 +1535,14 @@ classdef VUESR < handle
                                        if isnan(e_1(i,j,indFrames)) || isinf(e_1(i,j,indFrames)) || isnan(e_2(i,j,indFrames)) || isinf(e_2(i,j,indFrames))
                                            strain(i,j,indFrames-1) = 0;
                                        elseif abs(e_1(i,j,indFrames)) >= abs(e_2(i,j,indFrames))
-                                           strain(i,j,indFrames-1) = e_1(i,j,indFrames);
+                                           strain(i,j,indFrames-1) = abs(e_1(i,j,indFrames));
                                        else
-                                           strain(i,j,indFrames-1) = e_2(i,j,indFrames);
+                                           strain(i,j,indFrames-1) = abs(e_2(i,j,indFrames));
                                        end
                                    end
                               end
                            end
-                           strain = strain - min(min(min(strain)));
-                           %disp([min(min((strain))) max(max((strain)))])
-                           disp(size(strain))
-                           disp([max(max(strain(:,:,5:10))), mean(mean(strain(:,:,5:10)))])
-%                            for indFrames = startFrame:endFrame-1
-%                                        strain(:,:,indFrames) = 200.*strain(:,:,indFrames)./max(max((strain(:,:,indFrames))));
-%                            end
+                           strain = 200.*(strain)./(max(max(max(strain))));
                            
                             imageViewer(strain);
                     end
@@ -1558,8 +1551,8 @@ classdef VUESR < handle
                          function TrackAll(tool)
 
                             
-                            firstFrame = tool.accFrames(1); disp(firstFrame)
-                            lastFrame = tool.accFrames(2); disp(lastFrame)
+                            firstFrame = tool.accFrames(1); 
+                            lastFrame = tool.accFrames(2);
                             dicomFrames = lastFrame - firstFrame + 1;
                             newI = uint8(tool.I); 
                             J = uint8(tool.I);
@@ -1608,14 +1601,15 @@ classdef VUESR < handle
                             end
                             nPoints = count - 1;
                             tool.pointLog = zeros(nPoints, 2, dicomFrames);
-                            framenum = firstFrame;
+                            tool.pointLog(:,:,1) = points;
+                            framenum = firstFrame+1;
                             objectFrame = newI(:,:,firstFrame);
                             pointImage = insertMarker(objectFrame, points, '+', 'Color', 'white');
                             newI(:,:,firstFrame) = pointImage(:,:,1);
                             quality = ones(1,dicomFrames);
                             % Create object tracker
                             tracker = vision.PointTracker('MaxBidirectionalError', 3);
-                            ii = 1;
+                            ii = 2;
                             % Initialize object tracker
                             initialize(tracker, points(:,:,1), objectFrame);
                             h = waitbar(0,'Running pixel tracker...');
@@ -1626,14 +1620,15 @@ classdef VUESR < handle
                                   [points, validity] = step(tracker, frame);
                                   tool.pointLog(:,:,ii) = points;
                                   out = insertMarker(frame, points(validity, :), '+', 'Color', 'white');
+                                  newI(:,:,framenum) = out(:,:,1);
                                   framenum = framenum + 1;  ii = ii +1;
                                   quality(ii) = sum(validity)/length(validity);
-                                  newI(:,:,framenum) = out(:,:,1);
+                                  
 
                                   waitbar(ii/dicomFrames)
                             end
                             close(h)
-                            %imageViewer(newI);
+                            imageViewer(newI);
                             frames = (1:dicomFrames);
                             quality = quality*100;
                              %figure;
@@ -1641,7 +1636,7 @@ classdef VUESR < handle
                              %xlabel('Frames'); ylabel('% of Points Tracked')
                              %title('Tracking Quality')
                          end
-                 
+                         
         end
         
         function pixelShearCallback(~,~,tool)
