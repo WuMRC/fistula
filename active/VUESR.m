@@ -1,6 +1,6 @@
 classdef VUESR < handle
-    %This is a image slice viewer with built in scroll, contrast, zoom and
-    %ROI tools.
+    %This is a dicom image slice viewer with built in scroll, contrast, zoom,
+    %,ROI, and image measurement tools.
     %
     %   Use this class to place a self-contained image viewing panel within
     %   a GUI (or any figure). Similar to imtool but with slice scrolling.
@@ -225,14 +225,14 @@ classdef VUESR < handle
             tool.handles.fig = heightHistogram;
             tool.handlesROI = [];
             tool.currentROI = [];
-            tool.calibration = 1;
+            %tool.calibration = 1;
             tool.pixelDensity = 10;
             tool.accFrames = [1 size(tool.I,3)-1];
             tool.bp = [];
             tool.hRate = [];
-            tool.fRate = [];
+            %tool.fRate = [];
             tool.I = double(tool.I);
-            tool.zlocation = []; 
+            %tool.zlocation = []; 
             tool.zdiameter = [];
             tool.zdistensibility = []; 
             tool.zelasticity =[]; 
@@ -1470,8 +1470,8 @@ classdef VUESR < handle
                      TrackAll(tool);
                  end
                    dicomFrames = size(tool.I,3);
-                   choice = questdlg('Which type of strain would you like to display?', ...
-                        'Select strain type', 'Estimated','Actual','Actual');
+                   choice = questdlg('Which measurement would you like to display?', ...
+                        'Select strain type', 'Displacement','Strain','Strain');
                    
                     if ~isempty(tool.currentROI)                 
                                   if isvalid(tool.currentROI)
@@ -1492,7 +1492,7 @@ classdef VUESR < handle
                     endFrame = size(tool.pointLog,3);
                     
                     switch choice
-                       case 'Estimated'
+                       case 'Displacement'
                            count = 1;
                            for indFrames = startFrame:endFrame-1
                                     pointLogDiff(:,:,count) = tool.pointLog(:,:,indFrames+1) ...
@@ -1522,7 +1522,7 @@ classdef VUESR < handle
                                 pointLogDiff(:,:,indFrames) = tool.pointLog(:,:,indFrames+1) ...
                                     - tool.pointLog(:,:,indFrames);       
                             end
-                        case 'Actual'
+                        case 'Strain'
 
                            counter = 1;
                            for indFrames = startFrame:endFrame
