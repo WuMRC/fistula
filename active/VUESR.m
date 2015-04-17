@@ -229,13 +229,40 @@ classdef VUESR < handle
             tool.accFrames = [1 size(tool.I,3)-1];
             tool.bp = [];
             tool.hRate = [];
-            tool.fRate = 15;
+            tool.fRate = [];
             tool.I = double(tool.I);
             tool.zlocation = []; 
             tool.zdiameter = [];
             tool.zdistensibility = []; 
             tool.zelasticity =[]; 
             tool.pointDistCm = [];
+            
+            %Do optical character recognition to find measurement location
+            bottom = size(tool.I,1);
+            BW = im2bw(uint8(tool.I(bottom/1.5:bottom,:,1)), 0.5);
+            ocrResults = ocr(BW);
+            str = ocrResults.Text;
+            str = regexprep(str,'[^a-zA-Z]','');
+             tool.zlocation =str;
+            
+            %Do optical character recognition to find the frame rate in hz
+            right = size(tool.I,2);
+            BW = im2bw(uint8(tool.I(:,round(right/1.5):right,1)), 0.5);
+            ocrResults = ocr(BW);
+            results = char(ocrResults.Text);
+             k = strfind(results,'Hz');
+             if length(k) > 1
+                 k = k(2);
+             end
+             if ~isempty(k)
+                 hz = results(k-3:k-2);
+                 tool.fRate = str2double(hz);
+            else
+                disp('No frame rate detected')
+            end
+            
+            
+            %tool.fRate = ocrResults.Text;
             
             %%
             % Create the panels and slider
@@ -1883,6 +1910,7 @@ classdef VUESR < handle
 
         end
         
+        
     end
     
     
@@ -2115,8 +2143,8 @@ function exportCallback(~,~,tool)
            'String', num2str(tool.zpatientID), 'Position', [140 240 120 20]);
    dicomFileText = uicontrol('Style', 'text','FontSize', 10,'BackgroundColor', [.8,.8,.8],...
            'String', tool.fName, 'Position', [140 220 120 20]);
-    locationText = uicontrol('Style', 'edit','FontSize', 10,...
-           'String', num2str(tool.zlocation), 'Position', [140 200 120 20]);
+    locationText = uicontrol('Style', 'edit','FontSize', 7,...
+           'String', cellstr(tool.zlocation), 'Position', [140 200 120 20]);
     diameterText = uicontrol('Style', 'edit','FontSize', 10,...
            'String', num2str(tool.zdiameter), 'Position', [140 180 120 20]);
     distensibilityText = uicontrol('Style', 'edit','FontSize', 10,...
@@ -2183,12 +2211,11 @@ function exportCallback(~,~,tool)
     set(f,'Visible','on','Resize','off');
     
     function Cancel_callback(~,~)
-          disp('Cancel')
-          %Closes window without saving changes
+         %Closes window without saving changes
           close;
     end
     function OK_callback(~,~)
-          disp('OK')
+          
           choice = questdlg('Are you sure you want to overwrite data?', ...
                 'Warning', ...
                 'Yes','No','No');
