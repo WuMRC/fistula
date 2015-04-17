@@ -105,7 +105,7 @@ classdef VUESR < handle
     %
     %   Requires the image processing toolbox
     
-    properties (SetAccess = public, GetAccess = public)
+    properties (SetAccess = private, GetAccess = private)
         I           %Image data (MxNxK) matrix of image data (double)
         handles     %Structured variable with all the handles
         handlesROI  %list of ROI handles
@@ -126,6 +126,7 @@ classdef VUESR < handle
         zelasticity %Average measured elasticity
         zpatientID
         pointDistCm
+        studydate
         
     end
     
@@ -259,9 +260,23 @@ classdef VUESR < handle
                  tool.fRate = str2double(hz);
             else
                 disp('No frame rate detected')
-            end
+             end
             
+            %Use dicominfo to read important metadata from file
+            x = dicominfo(fileName);
             
+            tool.calibration = x.SequenceOfUltrasoundRegions.Item_1.PhysicalDeltaX;
+            tool.studydate = x.StudyDate;
+           
+            %Crop the image to only show ultrasound measurements
+           xmin = x.SequenceOfUltrasoundRegions.Item_1.RegionLocationMinX0;
+           xmax = x.SequenceOfUltrasoundRegions.Item_1.RegionLocationMaxX1;
+           ymin = x.SequenceOfUltrasoundRegions.Item_1.RegionLocationMinY0;
+           ymax = x.SequenceOfUltrasoundRegions.Item_1.RegionLocationMaxY1;
+           
+           tool.I = tool.I(ymin:ymax,xmin:xmax,:);
+           
+           %x.MechanicalIndex
             %tool.fRate = ocrResults.Text;
             
             %%
