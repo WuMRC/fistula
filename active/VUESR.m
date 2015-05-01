@@ -1,4 +1,4 @@
-classdef VUESR < handle
+ classdef VUESR < handle
     %This is a dicom image slice viewer with built in scroll, contrast, zoom,
     %,ROI, and image measurement tools.
     %
@@ -274,7 +274,7 @@ classdef VUESR < handle
            ymin = x.SequenceOfUltrasoundRegions.Item_1.RegionLocationMinY0;
            ymax = x.SequenceOfUltrasoundRegions.Item_1.RegionLocationMaxY1;
            
-           tool.I = tool.I(ymin:ymax,xmin:xmax,:);
+           %tool.I = tool.I(ymin:ymax,xmin:xmax,:);
            
            %x.MechanicalIndex
             %tool.fRate = ocrResults.Text;
@@ -637,7 +637,7 @@ classdef VUESR < handle
                 uicontrol(tool.handles.Panels.ROItools,...
                 'Style','pushbutton',...
                 'String','',...
-                'Position',[buff+2.25*widthSidePanel, buff+5*widthSidePanel, widthSidePanel, widthSidePanel],...
+                'Position',[buff+2.25*widthSidePanel, buff+5.25*widthSidePanel, widthSidePanel, widthSidePanel],...
                 'TooltipString','Measure Distance');
             icon_distance = makeToolbarIconFromPNG([MATLABdir '/tool_line.png']);
             set(tool.handles.Tools.Ruler,'CData',icon_distance);
@@ -649,7 +649,7 @@ classdef VUESR < handle
                 uicontrol(tool.handles.Panels.ROItools,...
                 'Style','pushbutton',...
                 'String','',...
-                'Position',[buff+1.25*widthSidePanel, buff+5*widthSidePanel, widthSidePanel, widthSidePanel],...
+                'Position',[buff+1.25*widthSidePanel, buff+5.25*widthSidePanel, widthSidePanel, widthSidePanel],...
                 'TooltipString','Get Line Profile');
             icon_profile = makeToolbarIconFromPNG([iptdir '/profile.png']);
             set(tool.handles.Tools.Profile,'Cdata',icon_profile)
@@ -661,12 +661,23 @@ classdef VUESR < handle
                 uicontrol(tool.handles.Panels.ROItools,...
                 'Style','pushbutton',...
                 'String','',...
-                'Position',[buff+.25*widthSidePanel, buff+5*widthSidePanel, widthSidePanel, widthSidePanel],...
+                'Position',[buff+.25*widthSidePanel, buff+5.25*widthSidePanel, widthSidePanel, widthSidePanel],...
                 'TooltipString','Crop Image');
             icon_profile = makeToolbarIconFromPNG([iptdir '/crop_tool.png']);
             set(tool.handles.Tools.Crop ,'Cdata',icon_profile)
             fun=@(hObject,evnt) CropImageCallback(hObject,evnt,tool);
             set(tool.handles.Tools.Crop ,'Callback',fun)
+            
+            % Create Crop # frames button
+            tool.handles.Tools.Cropframes = ...
+                uicontrol(tool.handles.Panels.ROItools,...
+                'Style','pushbutton',...
+                'String','# frames',...
+                'Position',[buff+.25*widthSidePanel, buff + 4.25*widthSidePanel, 3*widthSidePanel, widthSidePanel],...
+                'TooltipString','Crop # of frames in the cine loop',...
+                'ForegroundColor','k');
+            fun=@(hObject,evnt) CropFramesCallback(hObject,evnt,tool);
+            set(tool.handles.Tools.Cropframes ,'Callback',fun)
             
             % ********************************NEW STUFF**************************
 
@@ -771,7 +782,7 @@ classdef VUESR < handle
                 'Position',[buff, buff+3*widthSidePanel, 3.5*widthSidePanel, 1*widthSidePanel]);
             tool.handles.Tools.Image = uicontrol(tool.handles.Panels.ROItools,'Style','text',...
                 'String','Image Tools','BackgroundColor','k','ForegroundColor','w','FontWeight','bold',...
-                'Position',[buff, buff+6*widthSidePanel, 3.5*widthSidePanel, widthSidePanel]);        
+                'Position',[buff, buff+6.25*widthSidePanel, 3.5*widthSidePanel, widthSidePanel]);        
             tool.handles.Tools.Analyze = uicontrol(tool.handles.Panels.ROItools,'Style','text',...
                 'String','Analysis','BackgroundColor','k','ForegroundColor','w','FontWeight','bold',...
                 'Position',[buff, buff+12*widthSidePanel, 3.5*widthSidePanel, widthSidePanel]);        
@@ -1187,6 +1198,44 @@ classdef VUESR < handle
             tool.pointLog = [];
         end
         
+        function CropFramesCallback(~, ~,tool)
+            g = figure('Visible','off','Position',[200,200,150,120],'NumberTitle', 'off','ToolBar','none','MenuBar','none','Name','Edit/Export Data');
+                                  
+              frameRange = uicontrol('Style', 'text','FontSize', 10,'HorizontalAlignment','left',...
+                           'String', 'New frame range:', 'Position', [25 80 120 20], 'BackgroundColor', [.8,.8,.8]);
+              currentRange = uicontrol('Style', 'text','FontSize',6,'HorizontalAlignment','left',...
+                           'String', ['(Current Frame Range: ' '1 - ' num2str(size(tool.I,3)) ')'] , 'Position', [12 30 150 20], 'BackgroundColor', [.8,.8,.8]);
+              minFrame = uicontrol('Style', 'edit','FontSize', 10,...
+                         'String', num2str(tool.accFrames(1)), 'Position', [30 60 30 20]);
+               maxFrame = uicontrol('Style', 'edit','FontSize', 10,...
+                         'String', num2str(tool.accFrames(2)), 'Position', [ 80 60 30 20]);
+               to = uicontrol('Style', 'text','FontSize', 10,'HorizontalAlignment','left',...
+                           'String', 'to', 'Position', [64 60 12 20], 'BackgroundColor', [.8,.8,.8]);
+                Crop = uicontrol('Style', 'pushbutton', 'String', 'Crop',...
+                    'FontSize', 10,'Position', [10 10 60 20],'Callback', @Crop_callback);
+                Cancel = uicontrol('Style', 'pushbutton', 'String', 'Cancel',...
+                    'FontSize', 10,'Position', [80 10 60 20], 'Callback', @Cancel_callback);
+
+                set(g,'Name','Crop Frames')
+                set([g,frameRange, currentRange, minFrame, to, maxFrame, Crop, Cancel], 'Units','normalized') 
+                % Move the GUI to the center of the screen. 
+                movegui(g,'center')
+                % Make the GUI visible. 
+                set(g,'Visible','on','Resize','off');
+
+                function Cancel_callback(~,~)
+                     %Closes window without saving changes
+                      close(g);
+                end
+                function Crop_callback(~,~)
+                    setImage(tool, tool.I(:,:,round(str2double(get(minFrame,'String'))):round(str2double(get(maxFrame,'String')))))
+                    tool.pointLog = [];
+                    tool.accFrames = [1 size(tool.I,3)-1];
+                    close(g);
+                    msgbox('New frame range set')
+                end
+        end
+        
         function resetViewCallback(~,~,tool)
             set(tool.handles.Axes,'Xlim',get(tool.handles.I,'XData'))
             set(tool.handles.Axes,'Ylim',get(tool.handles.I,'YData'))
@@ -1314,10 +1363,10 @@ classdef VUESR < handle
                     %Find heart rate by looking at mins in cardiac cycle
                     [~,indd]=lmin(tool.pointDistCm,1);
                     indd = indd/sampleFreq;
-                    disp(indd)
+                    
                     avgbeat = mean(diff(indd));
                     tool.hRate = 60/avgbeat; %Heart rate in bpm
-                    disp(tool.hRate)
+                    
                     
                     imageViewer(newI);
                     
@@ -1333,8 +1382,13 @@ classdef VUESR < handle
                         'Callback',{@popup_menu_Callback});
 
                     hdrawrange = uicontrol('Style','pushbutton',... 
-                        'String','Select Strain Range','Position',[150,320,150,25],...
+                        'String','Select Strain Range','Position',[150,320,125,25],...
                         'Callback',{@drawrange_button_Callback});
+                    
+                    hcropframes =uicontrol('Style','pushbutton',... 
+                        'String','Crop # frames','Position',[300,320,100,25],...
+                        'Callback',{@cropframes_button_Callback});
+                    
                     
 %                     hrunstrain = uicontrol('Style','pushbutton',... 
 %                         'String','Calculate Wall Strain','Position',[325,320,150,25],...
@@ -1343,7 +1397,7 @@ classdef VUESR < handle
                     ha = axes('Units','pixels','Position',[25,25,425,270]); 
 
                     % Change units to normalized so components resize automatically. 
-                    set([f,ha,hpopup,hdrawrange],'Units','normalized');
+                    set([f,ha,hpopup,hdrawrange, hcropframes],'Units','normalized');
 
                     % Create a plot in the axes. 
                     plot(time, tool.pointDistCm)
@@ -1395,6 +1449,45 @@ classdef VUESR < handle
                                 pos2 = wait(hmax);
                                 tool.accFrames = [round((pos1(1,1)+pos1(2,1))*sampleFreq/2) , round((pos2(1,1)+pos2(2,1))*sampleFreq/2)];
                                 msgbox(['Frame range set as: ' num2str(tool.accFrames(1)) '-' num2str(tool.accFrames(2))]);    
+                         end
+                         
+                         function cropframes_button_Callback(~,~)
+                                  g = figure('Visible','off','Position',[200,200,150,120],'NumberTitle', 'off','ToolBar','none','MenuBar','none','Name','Edit/Export Data');
+                                  
+                                  frameRange = uicontrol('Style', 'text','FontSize', 10,'HorizontalAlignment','left',...
+                                               'String', 'New frame range:', 'Position', [25 80 120 20], 'BackgroundColor', [.8,.8,.8]);
+                                  currentRange = uicontrol('Style', 'text','FontSize',6,'HorizontalAlignment','left',...
+                                               'String', ['(Current Frame Range: ' '1 - ' num2str(size(tool.I,3)) ')'] , 'Position', [12 30 150 20], 'BackgroundColor', [.8,.8,.8]);
+                                  minFrame = uicontrol('Style', 'edit','FontSize', 10,...
+                                             'String', num2str(tool.accFrames(1)), 'Position', [30 60 30 20]);
+                                   maxFrame = uicontrol('Style', 'edit','FontSize', 10,...
+                                             'String', num2str(tool.accFrames(2)), 'Position', [ 80 60 30 20]);
+                                   to = uicontrol('Style', 'text','FontSize', 10,'HorizontalAlignment','left',...
+                                               'String', 'to', 'Position', [64 60 12 20], 'BackgroundColor', [.8,.8,.8]);
+                                    Crop = uicontrol('Style', 'pushbutton', 'String', 'Crop',...
+                                        'FontSize', 10,'Position', [10 10 60 20],'Callback', @Crop_callback);
+                                    Cancel = uicontrol('Style', 'pushbutton', 'String', 'Cancel',...
+                                        'FontSize', 10,'Position', [80 10 60 20], 'Callback', @Cancel_callback);
+                         
+                                    set(g,'Name','Crop Frames')
+                                    set([g,frameRange, currentRange, minFrame, to, maxFrame, Crop, Cancel], 'Units','normalized') 
+                                    % Move the GUI to the center of the screen. 
+                                    movegui(g,'center')
+                                    % Make the GUI visible. 
+                                    set(g,'Visible','on','Resize','off');
+                                    
+                                    function Cancel_callback(~,~)
+                                         %Closes window without saving changes
+                                          close(g);
+                                    end
+                                    function Crop_callback(~,~)
+                                        setImage(tool, tool.I(:,:,round(str2double(get(minFrame,'String'))):round(str2double(get(maxFrame,'String')))))
+                                        tool.pointLog = [];
+                                        tool.accFrames = [1 size(tool.I,3)-1];
+                                        close(g);
+                                        msgbox('New frame range set')
+                                    end
+                                    
                          end
                          
                         function [lmval,indd]=lmin(xx,filt)
@@ -1454,12 +1547,6 @@ classdef VUESR < handle
                             end
                         end     
                         
-%                          function runstrain_button_Callback(source,eventdata)
-%                                 if (isempty(tool.pointLog))
-%                                     pixelTrackAllCallback(hObject,evnt,tool);
-%                                 end
-%                          end
-
                          
         end
             
