@@ -1081,9 +1081,9 @@
                     %Distensibility = dVolume / (Original V * dPressure)
                     %Compliance = dVolume / dPressure
                     pressure = tool.bp*133.32; %mmHg to Pa
-                    volume = pi.*(tool.pointDistCm./200).^2; %Volume of circle in m2
-                    deltaV = max(volume) - min(volume);
-                    compliance = deltaV/(min(volume)*pressure);
+                    %volume = pi.*(tool.pointDistCm./200).^2; %Volume of circle in m2
+                    %deltaV = max(volume) - min(volume);
+                    %compliance = deltaV/(min(volume)*pressure);
                     
                     %hoopStress = pressure*mean(tool.pointDistCm)/(2*thickness);
                     %radialStress = -pressure/2;
@@ -1093,7 +1093,7 @@
                     
                     tool.zdiameter = mean(tool.pointDistCm);
                     tool.zdistensibility = mean(pointDistTp);
-                    tool.zcompliance = mean(compliance);
+                    %tool.zcompliance = mean(compliance);
                     
                     sampleFreq = tool.fRate;
                     time = (1:dicomFrames)/sampleFreq;
