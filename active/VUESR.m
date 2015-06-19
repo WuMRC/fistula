@@ -154,7 +154,7 @@
                             tool.I = permute(image_change,[1 2 4 3]);
                         end
                         position=[0, 0, 1, 1];
-                        heightHistogram=  figure('Position', [400 200 650 600],'Name','VUESR Imaging Toolbox v1.0','NumberTitle','off');
+                        heightHistogram=  figure('Position', [400 200 650 600],'Name','VUESR Imaging Toolbox - alpha','NumberTitle','off');
                         set(heightHistogram,'Toolbar','none','Menubar','none');                
                         pixelValueRange = [min(tool.I(:)), max(tool.I(:))];
                         tool.fName = fileName;
