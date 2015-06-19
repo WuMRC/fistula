@@ -1052,25 +1052,6 @@
                     newI(:,:,1) = pointImage(:,:,1);
                     pointDist = zeros(1,dicomFrames);
                     
-                    %Find edge of wall and create offset to reduce error of
-                    %diameter measurements
-                     for k = 1:61
-                        edgePoints1(k,:) = [poiX(1), poiY(1)+31-k];
-                        evalue1(k) = tool.I(edgePoints1(k,2),edgePoints1(k,1),1);
-                        edgePoints2(k,:) = [poiX(2), poiY(2)-31+k];
-                        evalue2(k) = tool.I(edgePoints2(k,2),edgePoints2(k,1),1);
-                        if evalue1(k) <= 10 && evalue1(k-1) >= 10
-                            offset1 = k - 31;
-                        end
-                        if evalue2(k) <=10 && evalue2(k-1) >= 10
-                            offset2 = k - 31;
-                        end
-                     end
-                    pdist = -30:1:30;
-                    figure;
-                    plot (pdist,evalue1,pdist,evalue2);
-                    disp([offset1 offset2]);
-                    
                     % Create object tracker
                     tracker = vision.PointTracker('MaxBidirectionalError', 3);
 
@@ -1091,8 +1072,7 @@
 
                           framenum = framenum + 1;
                     end
-                    %Offset measurement to reduce error
-                    pointDist = pointDist - offset1 - offset2;
+                    
                     %Convert pixels to cm and percent
                     cm = tool.calibration;
                     tool.pointDistCm = pointDist.*cm;
@@ -1112,7 +1092,6 @@
                     pointDistTpPercent = pointDistPercent-min(pointDistPercent);
                     
                     tool.zdiameter = mean(tool.pointDistCm);
-                    disp ([min(tool.pointDistCm) mean(tool.pointDistCm) max(tool.pointDistCm)])
                     tool.zdistensibility = mean(pointDistTp);
                     %tool.zcompliance = mean(compliance);
                     
