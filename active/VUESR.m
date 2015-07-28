@@ -106,24 +106,24 @@
     %   Requires the image processing toolbox
     
     properties (SetAccess = private, GetAccess = private)
-        I           %Image data (MxNxK) matrix of image data (double)
-        handles     %Structured variable with all the handles
-        handlesROI  %list of ROI handles
-        currentROI  %Currently selected ROI
-        centers     %list of bin centers for histogram
-        calibration %Converts pixels to mm
-        pointLog  %Log of all the points being tracked
-        pointLog2 %Log points for the 2 point tracker
-        pixelDensity %Amount of pixels being tracked
-        accFrames % Frames used to find accumulated strain
-        bp %Mean Arterial blood pressure
-        fRate %Frame rate in Hz
-        hRate %Hear rate in BPM
-        fName %File opened
-        zlocation %Measurement location on the arm
-        zdiameter %Average measured diameter
-        zdistensibility %Average measured distensibility
-        zelasticity %Average measured elasticity
+        I               % Image data (MxNxK) matrix of image data (double)
+        handles         % Structured variable with all the handles
+        handlesROI      % list of ROI handles
+        currentROI      % Currently selected ROI
+        centers         % list of bin centers for histogram
+        calibration     % Converts pixels to mm
+        pointLog        % Log of all the points being tracked
+        pointLog2       % Log points for the 2 point tracker
+        pixelDensity    % Amount of pixels being tracked
+        accFrames       % Frames used to find accumulated strain
+        map             % Mean Arterial blood pressure
+        fRate           % Frame rate in Hz
+        hRate           % Hear rate in BPM
+        fName           % File opened
+        zlocation       % Measurement location on the arm
+        zdiameter       % Average measured diameter
+        zdistensibility % Average measured distensibility
+        zelasticity     % Average measured elasticity
         zpatientID
         pointDistCm
         studydate
@@ -1004,7 +1004,7 @@
                     oldpixels = tool.pixelDensity;
                     accRange = strcat([num2str((tool.accFrames(1))),',',num2str((tool.accFrames(2)))]);
                     oldRange = tool.accFrames;
-                    bloodp = num2str(tool.bp);
+                    bloodp = num2str(tool.map);
                     frameRate = num2str(tool.fRate);
                     %accRange = '1,10';
                     %disp(accRange); disp(size(accRange)); disp(cal); disp(size(cal)); disp(pixels);
@@ -1016,7 +1016,7 @@
                         tool.calibration = str2double(answer{1,1});
                         tool.pixelDensity = str2double(answer{2,1});
                         tool.accFrames = str2num(answer{3,1});
-                        tool.bp = str2num(answer{4,1});
+                        tool.map = str2num(answer{4,1});
                         tool.fRate = str2num(answer{5,1});
                     end
                     if oldpixels ~= tool.pixelDensity | oldRange ~= tool.accFrames
@@ -1080,7 +1080,7 @@
                     
                     %Distensibility = dVolume / (Original V * dPressure)
                     %Compliance = dVolume / dPressure
-                    pressure = tool.bp*133.32; %mmHg to Pa
+                    pressure = tool.map*133.32; %mmHg to Pa
                     %volume = pi.*(tool.pointDistCm./200).^2; %Volume of circle in m2
                     %deltaV = max(volume) - min(volume);
                     %compliance = deltaV/(min(volume)*pressure);
@@ -1834,9 +1834,9 @@ axis fill
 
 end
 
-function adjustPanMouse(~,~,bp,hObject,xlims,ylims)
+function adjustPanMouse(~,~,map,hObject,xlims,ylims)
 cp = get(hObject,'CurrentPoint'); cp=[cp(1,1) cp(1,2)];
-d=(bp-cp)/1.25;
+d=(map-cp)/1.25;
 set(hObject,'Xlim',xlims+d(1),'Ylim',ylims+d(2))
 end
 
@@ -1994,7 +1994,7 @@ function exportCallback(~,~,tool)
     elasticityText = uicontrol('Style', 'edit','FontSize', 10,...
            'String', num2str(tool.zelasticity), 'Position', [140 120 120 20]);
     mapText = uicontrol('Style', 'edit','FontSize', 10,...
-           'String', num2str(tool.bp), 'Position', [140  80 120 20]);
+           'String', num2str(tool.map), 'Position', [140  80 120 20]);
     hrText = uicontrol('Style', 'edit','FontSize', 10,...
            'String', num2str(tool.hRate), 'Position', [140 60 120 20]);
 
@@ -2070,7 +2070,7 @@ function exportCallback(~,~,tool)
                       tool.zlocation =get(locationText, 'String');
                       tool.zdiameter =str2num(get(diameterText, 'String'));
                       tool.zdistensibility =str2num(get(distensibilityText, 'String'));
-                      tool.bp = str2num(get(mapText, 'String'));
+                      tool.map = str2num(get(mapText, 'String'));
                       tool.zelasticity =str2num(get(elasticityText,'String'));
                       tool.hRate = str2num(get(hrText, 'String'));
                       close;
@@ -2145,7 +2145,7 @@ function initializeVUESR(tool)
             %tool.calibration = 1;
             tool.pixelDensity = 10;
             tool.accFrames = [1 size(tool.I,3)-1];
-            tool.bp = 50;
+            tool.map = 50;
             tool.hRate = [];
             %tool.fRate = [];
             tool.I = double(tool.I);
