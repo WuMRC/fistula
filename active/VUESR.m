@@ -1105,9 +1105,11 @@
                     avgbeat = mean(diff(indd));
                     tool.hRate = 60/avgbeat; %Heart rate in bpm
                     
-                    
-                    imageViewer(newI);
-                    
+%                     ImageViewer(newI); "Imageviewer function isn't often
+%                     working in many computers. Instead of using this
+%                     function parameters are saved for post processing."
+                        save newI.mat;
+                        
                     % Plot the tracked pixel movement in a switchable GUI
                     % Create and then hide the GUI as it is being constructed. 
                     f = figure('Visible','off','Position',[360,500,525,350]); %Left bottom width height
@@ -1338,7 +1340,8 @@
                             for ind = startFrame:endFrame-1
                                 totalDiff(:,:,ind) = medfilt2(totalDiff(:,:,ind));
                             end
-                            imageViewer(totalDiff);
+%                             ImageViewer(totalDiff);
+                                save totalDiff.mat;
                        case 'OldFrame to Frame'
                             % Simple difference
                             for indFrames = startFrame:endFrame
@@ -1409,7 +1412,8 @@
                            end
                            strain = 200.*(strain)./(max(max(max(strain))));
                            
-                            imageViewer(strain);
+%                             ImageViewer(strain);
+                                save strain.mat
                     end
 
                 
@@ -1493,7 +1497,7 @@
                                   waitbar(ii/dicomFrames)
                             end
                             close(h)
-                            imageViewer(newI);
+%                             ImageViewer(newI);
                             frames = (1:dicomFrames);
                             quality = quality*100;
                              %figure;
@@ -1594,7 +1598,8 @@
                                     shear(POS(2),POS(1),indFrame) = newrho(ind,indFrame);
                                 end
                             end
-                            imageViewer(shear);
+%                             ImageViewer(shear);
+                                   save shear.mat
                             for ind = 1:shearPoints
                                 wallshear(ind) = mean(rho(ind,:));
                                 wallshear2(ind) = mean(rho2(ind,:));
@@ -1704,7 +1709,7 @@
             for ind = 1:dicomFrames
                 strain(ind) = (dist(ind)-avgdist)/avgdist;
             end
-            imageViewer(newI);
+%             ImageViewer(newI);
             frame = 1:dicomFrames;
             figure;
             plot(frame, strain)
@@ -1729,7 +1734,7 @@
                             indFrame = indFrame + 1;
                         end
                         imageROI_BW = uint8(imageROI_BW);
-                       imageViewer(imageROI_BW)
+%                        ImageViewer(imageROI_BW)
                         % An interesting result
                         time = (1:nFrames)./16;
                         figure;
@@ -2453,9 +2458,3 @@ function createButtons(tool,lp,buff,widthSidePanel)
             
 
 end
-        
-        
-
-
-
-
